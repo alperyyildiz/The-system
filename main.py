@@ -269,6 +269,7 @@ class MAIN_OBJ():
             At_The_Begin = True
             self.Branch_First = False
             self.num_of_networks = self.num_of_networks + 1
+            self.order.append('block')
         
         if At_The_Begin is False:
             #Find last layer contains out_channels as parameter
@@ -411,10 +412,8 @@ class MAIN_OBJ():
             if block[layer][0] == 'conv1d':
                 
                 seq_length = int(np.floor((seq_length + 2*params[4] - params[5]*(params[2]-1)-1)/params[3] + 1))
-                print(seq_length)
             elif block[layer][0] == 'MaxPool1d':
                 seq_length = int(np.floor((seq_length + 2*params[2] - params[3]*(params[0]-1)-1)/params[1] + 1))
-                print(seq_length)
 
         return seq_length
 
@@ -440,6 +439,9 @@ class MAIN_OBJ():
     def Finish_Building(self):
         self.ALL_NETWORKS[str(self.num_of_networks)] = self.network
         self.order.append('block')
+        
+        
+        
 class NET(MAIN_OBJ):
     def __init__(self):
         super().__init__()
@@ -459,18 +461,16 @@ class NET(MAIN_OBJ):
 
         self.order = list()
         
+        
 class Model(nn.Module):
     def __init__(self, SOURCE_OBJ):
         super().__init__()
         self.play_list = nn.ModuleDict()
         self.__dict__.update(SOURCE_OBJ.__dict__)
-        print(self.ALL_NETWORKS)
-        print(self.ALL_BRANCHES)
-
         ind_branch = 0
         ind_block = 0
         self.THE_LIST = nn.ModuleDict()
-        for i in range(self.num_of_branches + self.num_of_networks-1):
+        for i in range(self.num_of_branches + self.num_of_networks):
             self.layers = nn.ModuleList()
 
 
@@ -478,9 +478,9 @@ class Model(nn.Module):
                 ind_branch = ind_branch + 1
                 BRANCH = self.ALL_BRANCHES[str(ind_branch)]
 
+                self.sub_list = nn.ModuleDict()
 
                 for BLOCK in list(BRANCH.keys()):
-                    self.sub_list = nn.ModuleDict()
                     self.layers = nn.ModuleList()
 
                     for LAYER in list(BRANCH[BLOCK].keys()):
@@ -492,7 +492,6 @@ class Model(nn.Module):
 
             elif self.order[i] == 'block':
                 ind_block = ind_block + 1
-                print(list(self.ALL_NETWORKS[str(ind_block)].keys()))
                 BLOCK = self.ALL_NETWORKS[str(ind_block)]
                 for LAYER in list(BLOCK.keys()):
                     TYPE = BLOCK[LAYER][0]
@@ -501,7 +500,27 @@ class Model(nn.Module):
                 self.THE_LIST['block-' + str(ind_block)] = self.layers
 
 
-                
+    def forward(self,x,y):
+        blocks_and_branches = list(self.THE_LIST.keys())
+
+        for PART in blocks_and_branches:
+            part_list = PART.split('-')
+
+            #BLOCK FORWARD
+            if part_list[0] == 'block':
+                for LAYER in self.THE_LIST[PART]:
+                    x = LAYER(x)
+                return x
+            #BRANCH FORWARD
+            elif part_list[0] == 'branch':
+                block_list = list(self.THE_LIST[PART].keys())
+                tensor_list = list()
+
+                for i, BLOCK in enumerate(block_list): 
+                    block_out = self.THE_LIST[PART][BLOCK](x)
+                    y = torch.cat((y,x),dim=1)
+                    
+                return y
     def layer_add(self,submodule,key,*args):
         submodule.append(self.layer_set(key,*args))
         return submodule
@@ -511,7 +530,6 @@ class Model(nn.Module):
         ## push args into key layer type, return it
         ## push args into key layer type, return it
         if key == 'conv1d':
-            print(*args)
             return nn.Conv1d(*args)
         elif key == 'LSTM':
             return nn.LSTM(*args)
@@ -527,6 +545,8 @@ class Model(nn.Module):
             return nn.ReLU()
         elif key == 'MaxPool1d':
             return nn.MaxPool1d(*args)
+
+
 
 
 
