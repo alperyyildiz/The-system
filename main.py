@@ -1,14 +1,17 @@
 from collections import OrderedDict 
 import copy
-
-
+import numpy as np
+import torch 
+import torch.nn as nn
 class MAIN_OBJ():
     def __init__(self):
         super().__init__()
-        self.Blocks = OrderedDict()
-        self.Branches = OrderedDict()
+        self.init_params()
+        
+    def init_params(self):
         #default input types from pytorch documentation. 
-        #User input will be processed by these functions
+        #User input will be processed by these functions and parameters
+
         self.input_types = {'conv1d': [int,int,int,int,int,int,int,self.Bool_Rework,str],
                             'conv2d': [int,int,int,int,int,int,int,self.Bool_Rework,str],
                             'conv1dTranspose': [int,int,int,int,int,int,int,self.Bool_Rework,int,str],
@@ -126,7 +129,7 @@ class MAIN_OBJ():
             print('WE HAVE A PROBLEM IN BOOL_REWORK')
 
 
-    def create_block(self):
+    def Create_Block(self):
         #Creates an ordered dictionary
         #Saves layer type with parameters specified by user
         NAME = input('Enter Block Name: ')
@@ -152,198 +155,252 @@ class MAIN_OBJ():
         #Notice we do not initialize layers
         #just setting parameters for initialization
         #MaxPool1d is a special case as flatten
-        layerlist = [int(x) for x in list(Dict_Block.keys())]
-        for layer in layerlist:
-            if layer > 1 and  Dict_Block[str(layer)][0] != 'MaxPool1d' and Dict_Block[str(layer-1)][0] != 'MaxPool1d':
-                Dict_Block[str(layer)][1][0] = Dict_Block[str(layer-1)][1][1]
-            elif layer > 1 and Dict_Block[str(layer)][0] == 'MaxPool1d':
-                pass
-            elif layer > 1 and Dict_Block[str(layer-1)][0] == 'MaxPool1d':
-                Dict_Block[str(layer)][1][0] = Dict_Block[str(layer-2)][1][1]
-            elif layer == 1:
-                Dict_Block[str(layer)][1][0] = None
-                
+
+        layer_list_str = list(Dict_Block.keys())
+        out_channels = Dict_Block[layer_list_str[0]][1][1]
+        #HARD CODING 2nd if
+        #HARD CODING 2nd if
+        #HARD CODING 2nd if
+        for i,layer in enumerate(layer_list_str):
+            if i is not 0:
+              print(layer)
+              if Dict_Block[layer][0] in ['Linear','conv1d']:
+                  print(out_channels)
+                  Dict_Block[layer][1][0] = out_channels
+                  print(Dict_Block[layer][1][0])
+                  out_channels =  Dict_Block[layer][1][1]
+   
         self.Blocks[NAME] = Dict_Block
 
 
 
-    def create_branch(self):
+    def Create_Branch(self):
         #Creates an ordered dictionary
         #Saves layer type with parameters specified by user
-        NAME = input('Enter Block Name: ')
+        NAME = input('Enter Branch Name: ')
         Add_layers = True
         Add_branches = True
         Dict_Branch = OrderedDict()
 
-        count_br = 0
+        count_block = 0
         #While loop until user says stop adding branches
         while Add_branches:
-            count_br = count_br + 1
-            count_layers =0
-            Branch = OrderedDict()
-            #While loop until user says stop adding layers
-            while Add_layers:
-                count = count + 1
-                TYPE = input('enter layer type: ')
-                print('\n Seperate input with comma, write - for defalt value\n')
-                print(self.Def_Params[TYPE])
-                print('\n')
-                input_params = input()
-                input_params = self.input_reworker(TYPE, input_params)
-                layer_num = str(count)
-                Branch[layer_num] = [TYPE, input_params]
-
-            layerlist = [int(x) for x in list(Branch.keys())]
-            for layer in layerlist:
-                if layer > 1 and  Branch[str(layer)][0] != 'MaxPool1d' and Branch[str(layer-1)][0] != 'MaxPool1d':
-                    Branch[str(layer)][1][0] = Branch[str(layer-1)][1][1]
-                elif layer > 1 and Branch[str(layer)][0] == 'MaxPool1d':
-                    pass
-                elif layer > 1 and Branch[str(layer-1)][0] == 'MaxPool1d':
-                    Branch[str(layer)][1][0] = Branch[str(layer-2)][1][1]
-                elif layer == 1:
-                    Branch[str(layer)][1][0] = None
-
-
-
-            Dict_Branch[str(count_br)] = Branch
+            count_block = count_block + 1
+            print(self.Blocks)
+            block_name  = input('Which block you want to add as a branch \n')
+            Dict_Branch[str(count_block)] = self.Blocks[block_name]
 
             add_value = input('You want to add more branches?? \n')
             Add_branches = self.Bool_Rework(add_value)
 
 
-        self.Branches[NAME] = Dict_Branch
+        self.Branches_Created[NAME] = Dict_Branch
 
-   
-    def Append_Block_to_Network(self, BB):
-        #Append 2 layer blocks
-        
-        block = copy.deepcopy(BB)
-        
-        network_layers = list(self.network.keys())
-        block_layers = list(block.keys())
-        
-        if len(network_layers) > 0:
-            normal_layer_need = True
-            count = 0
-            while normal_layer_need:
-                count = count - 1
-                if network_layers[count][0] not in ['MaxPool1d','Dropout']:
-                    last_normal_layer = count
-                    normal_layer_need = False
-
-            block_2[block_layers[0]][1][0] = self.network[network_layers[last_normal_layer]][1][1]
-            count = int(network_layers[-1])
-
-            for lay in block_layers:
-                count = count + 1
-                self.network[str(count)] = block[lay]
-        else:
-            block_2[block_layers[0]][1][0] = self.seq_len
-            count = 0
-            for lay in block_layers:
-                count = count + 1
-                self.network[str(count)] = block[lay]
-        self.seq_len = self.track_seq_length(block,self.seq_len)
-                
-    def Append_Branch_to_Network(self,Br,same_seq_len = True):
-        #Append a block and a branch
-        branch = copy.deepcopy(Br)
-        
-        network_layers = list(self.network.keys())
-        
-        blocks = list(branch.keys())
-
-        if len(network_layers) > 0:
-
-            normal_layer_need = True
-            count = 0
-            while normal_layer_need:
-                count = count - 1
-                if network_layers[count][0] not in ['MaxPool1d','Dropout']:
-                    last_normal_layer = count
-                    normal_layer_need = False
-            for br in blocks:
-
-                branch[br]['1'][1][0] = self.network[network_layers[last_normal_layer]][1][1]
-        else:
-            for i, br in enumerate(blocks):
-                branch[br]['1'][1][0] = self.seq_len_list[i]
-        if same_seq_len:
-            self.seq_len = self.track_seq_len(branch['1'],self.seq_len)
-        else:
-           out_channels = 0
-           for i, br in enumerate(blocks):
-              br_layers = list(branch[br].keys())
-              normal_layer_need = True
-              count = 0
-              while normal_layer_need:
-                  count = count - 1
-                  if branch[br][count][0] not in ['MaxPool1d','Dropout']:
-                      last_normal_layer = count
-                      normal_layer_need = False
-
-              s_len = self.track_seq_len(branch[br],self.seq_len)
-
-              out_channels = out_channels +  s_len * branch[br][last_normal_layer][1][1]
-        self.branch_out_channels = out_channels
-        self.seq_len = 1
-
-
-
-
-
-
-
-    def concat_using_flatten(self, B1, B2, initial_seq_len):
-        #Append Blocks by using flatten in between
-        block_1 = copy.deepcopy(B1)
-        block_2 = copy.deepcopy(B2)
-        seq_len = self.track_seq_len(block_1, initial_seq_len)
-
-        b1_layers = list(block_1.keys())
-        b2_layers = list(block_2.keys())
-
-
-        #We need the last neural layer to bound parameters of two consecutive block
-        #Dropout and Pooling parameters will not work
+    def last_normal_layer(self,block):
+        layers = list(block.keys())
         normal_layer_need = True
         count = 0
         while normal_layer_need:
             count = count - 1
-            if b1_layers[count][0] not in ['MaxPool1d','Dropout']:
-                last_normal_layer = count
+            if block[layers[count]][0] not in ['MaxPool1d','Dropout','Flatten']:
+                the_layer = count
                 normal_layer_need = False
+                print(block[layers[count]][0])
+        return the_layer
 
-        #We calculate feature size to set as in_channels to second block
-        feature_size = block_1[b1_layers[last_normal_layer]][1][1] * seq_len
+    def Check_Flatten(self,block):
+        flatten = False
+        layerlist = list(block.keys())
+        for layer in layerlist:
+            if block[layer][0] == 'Flatten':
+                flatten = True
+        return flatten
 
-        block_2[b2_layers[0]][1][0] = feature_size
-        count = 0
-        New_Block = OrderedDict()
+    def Check_Flatten_for_Branch(self,Branch):
+        branch = copy.deepcopy(Branch)
 
-        for lay in b1_layers:
-            count = count + 1
-            New_Block[str(count)] = block_1[lay]
+        All_Flatten = False
+        blocks = list(branch.keys())
+        for BLOCK in blocks:
+            flatten = False
+            for LAYER in list(branch[BLOCK].keys()):
+                if branch[BLOCK][LAYER][0] is 'Flatten':
+                    flatten = True
+                    cc = cc + 1
+                    break
+            
+        if cc == len(blocks):
+            All_Flatten = True
+        return All_Flatten
 
-        count = count + 1
-        New_Block[str(count)] = ['flatten', [1,-1]]
 
+    def Calculate_Output_Seq_Len_of_Branch(self,Branch,seq_len_list):
+        branch = copy.deepcopy(Branch)
+        blocks = list(branch.keys())
+
+        for block_number,BLOCK in enumerate(blocks):
+            seq_len_list[block_number] = int(np.floor(self.track_seq_len(branch[BLOCK],seq_len_list[block_number])))
+            if seq_len_list[block_number] < 0:
+                raise Exception('seq_len become negative in branch {}'.format(BLOCK))
+        return seq_len_list
+
+    def List_Output_Channels_of_Branch(self,Branch):
+        branch = copy.deepcopy(Branch)
+        blocks = list(branch.keys())
+
+        out_ch_list = list()
+        for BLOCK in blocks:
+            index = self.last_normal_layer(branch[BLOCK])
+    
+            layer_list = list(branch[BLOCK].keys())
+            out_ch_list.append(branch[BLOCK][layer_list[index]][1][1])
+        return out_ch_list
+
+    def Append_Block_to_Network(self, Block):
+        #Append the block to the Network
+        block = copy.deepcopy(Block)
         
-        for lay in b2_layers:
-            count = count + 1
-            New_Block[str(count)] = block_2[lay]
+        network_layers = list(self.network.keys())
+        block_layers = list(block.keys())
         
-        return New_Block
+        if len(network_layers) > 0 or len(list(self.ALL_NETWORKS.keys())) > 0:
+            At_The_Begin = False
+        else:
+            At_The_Begin = True
+            self.Branch_First = False
+            self.num_of_networks = self.num_of_networks + 1
+        
+        if At_The_Begin is False:
+            #Find last layer contains out_channels as parameter
+            block[block_layers[0]][1][0] = self.out_channels
+
+            if len(network_layers) == 0:
+                count = 0
+            else:
+                count = int(network_layers[-1])
+            
+            #Append block layers to network
+            for lay in block_layers:
+                
+                count = count + 1
+                self.network[str(count)] = block[lay]
+                self.seq_len_processor(block[lay])
+                
 
 
-    def seq_len_processor(self):
-        if block[layer][0] == 'conv1d':
-            self.seq_length = (self.seq_length + 2*params[4] - params[5]*(params[2]-1)-1)/params[3] + 1
-        elif block[layer][0] == 'MaxPool1d':
-            self.seq_length = (self.seq_length + 2*params[2] - params[3]*(params[0]-1)-1)/params[1] + 1
+        #If this is the first block to be added
+        #Attend feature size as in_channels
+        else:
+            block[block_layers[0]][1][0] = self.feature_size
+            count = 0
+            for lay in block_layers:
+                count = count + 1
+                self.network[str(count)] = block[lay]
+                self.seq_len_processor(block[lay])
 
 
+
+    def Append_Branch_to_Network(self,Branch,All_Flatten):
+        #Append the branch to the network
+        #Flatten all branches if needed 
+        
+        #Get block list in the branch
+        branch = copy.deepcopy(Branch)
+        network_layers = list(self.network.keys())
+        blocks = list(branch.keys())
+        num_of_blocks = len(blocks)
+
+        #Check if the branch in the beginning or not
+        if len(network_layers) > 0:
+            At_The_Begin = False
+        else:
+            At_The_Begin = True
+            self.Branch_First = True
+        
+        #Calculates Branch Output Seq_lengths
+        if At_The_Begin is False:
+            init_seq_len_list = [self.seq_len for x in range(len(blocks))] 
+        else:
+            seq_list = input('Provide input sequences, separate them with comma(,) ')
+            init_seq_len_list = seq_list.split(",")
+        final_seq_len_list = self.Calculate_Output_Seq_Len_of_Branch(branch,init_seq_len_list)
+        #Check if all seq_lengths are the same
+        #Check if all blocks have flatten layer
+        All_Same = all(x == final_seq_len_list[0] for x in final_seq_len_list)
+
+        #Set In_Channels
+        for BLOCK in blocks:
+            if At_The_Begin is False:
+                branch[BLOCK]['1'][1][0] = self.feature_size
+            else: 
+                branch[BLOCK]['1'][1][0] = self.out_channels    
+
+            if All_Flatten == True:
+                layerlist_of_block = list(branch[BLOCK].keys())
+                branch[BLOCK][str(int(layerlist_of_block[-1]) + 1)] = ['Flatten', [1,-1]]
+        out_channels_list = self.List_Output_Channels_of_Branch(branch)
+
+
+
+        #If output seq lengths varying, Flatten assumed to be used
+        #Error will be raised if seq_lengths are not equal and
+        #and Flatten is not used in each block
+        if All_Same is False:
+            if All_Flatten is False:
+                raise Exception('You need Flatten or set parameters to have same seq_len from branch blocks')
+            else:
+                out_channels = 0
+                for i, BLOCK in enumerate(blocks):
+                    out_channels = out_channels +  final_seq_len_list[i] * out_channels_list[i]
+                    print('out channels: {}'.format(out_channels))
+                    print('final_seq_len_list: {}'.format(final_seq_len_list[i]))
+                    print('out_channels_list: {}'.format(out_channels_list[i]))
+
+                self.seq_len = 1
+        else:
+
+            out_channels = 0
+            if All_Flatten is False:
+                for i, BLOCK in enumerate(blocks):
+                    out_channels = out_channels + out_channels_list[i]
+            else:
+                for i, BLOCK in enumerate(blocks):
+                    out_channels = out_channels +  final_seq_len_list[i] * out_channels_list[i]
+                self.seq_len = 1
+
+
+        self.ALL_NETWORKS[str(self.num_of_networks)] = self.network
+        del self.network
+        self.network = OrderedDict()
+        self.num_of_networks = self.num_of_networks + 1
+
+        self.out_channels = out_channels
+        self.num_of_branches = self.num_of_branches + 1 
+
+        self.ALL_BRANCHES[str(self.num_of_branches)] = branch
+        
+        self.order.append('branch') 
+
+
+    def Append_Flatten_to_Network(self):
+
+        network_layers = list(self.network.keys())
+        count = int(network_layers[-1])
+        self.network[str(count+1)] = ['Flatten',[1,-1]]
+        self.out_channels = self.seq_len * self.out_channels
+        self.seq_len = 1
+
+
+    def seq_len_processor(self,layer):
+        params = layer[1]
+        if layer[0] == 'conv1d':
+            self.out_channels = params[1]
+            self.seq_len = int(np.floor((self.seq_len + 2*params[4] - params[5]*(params[2]-1)-1)/params[3] + 1))
+
+        elif layer[0] == 'MaxPool1d':
+            self.seq_len = int(np.floor((self.seq_len + 2*params[2] - params[3]*(params[0]-1)-1)/params[1] + 1))
+        if self.seq_len < 0:
+            raise Exception('Seq length becomes negative')
 
     def track_seq_len(self,block,seq_length):
         #Method to track sequence length of forward input
@@ -352,20 +409,16 @@ class MAIN_OBJ():
         for layer in list(block.keys()):
             params = block[layer][1]
             if block[layer][0] == 'conv1d':
-                seq_length = (seq_length + 2*params[4] - params[5]*(params[2]-1)-1)/params[3] + 1
+                
+                seq_length = int(np.floor((seq_length + 2*params[4] - params[5]*(params[2]-1)-1)/params[3] + 1))
+                print(seq_length)
             elif block[layer][0] == 'MaxPool1d':
-                seq_length = (seq_length + 2*params[2] - params[3]*(params[0]-1)-1)/params[1] + 1
+                seq_length = int(np.floor((seq_length + 2*params[2] - params[3]*(params[0]-1)-1)/params[1] + 1))
+                print(seq_length)
+
         return seq_length
 
-    def Create_Network(self):
-        #This will try to create whole network
-        #I dont know about branches, what to do with them
-        self.seq_length = 100
-        block = self.Append_Blocks(self.Blocks['bisi'],self.Blocks['Dense'])
-        self.seq_length = self.track_seq_len(block,self.seq_length)
-        print(self.seq_length)
-
-    
+ 
     def Create_Forward_List(self):
         forward_pass_list = list()
         q = True
@@ -383,40 +436,97 @@ class MAIN_OBJ():
                     block_names.append(block_name)
                 forward_pass_list.append(block_names)
         self.forward_list = forward_pass_list
+    
+    def Finish_Building(self):
+        self.ALL_NETWORKS[str(self.num_of_networks)] = self.network
+        self.order.append('block')
+class NET(MAIN_OBJ):
+    def __init__(self):
+        super().__init__()
+        self.seq_len = 250
+        self.feature_size = 50
+
+        self.Blocks = OrderedDict()
+        self.Branches_Created = OrderedDict()
+
+        self.network = OrderedDict()
+
+        self.ALL_NETWORKS = OrderedDict()
+        self.ALL_BRANCHES = OrderedDict()
+        
+        self.num_of_branches = 0
+        self.num_of_networks = 0
+
+        self.order = list()
+        
+class Model(nn.Module):
+    def __init__(self, SOURCE_OBJ):
+        super().__init__()
+        self.play_list = nn.ModuleDict()
+        self.__dict__.update(SOURCE_OBJ.__dict__)
+        print(self.ALL_NETWORKS)
+        print(self.ALL_BRANCHES)
+
+        ind_branch = 0
+        ind_block = 0
+        self.THE_LIST = nn.ModuleDict()
+        for i in range(self.num_of_branches + self.num_of_networks-1):
+            self.layers = nn.ModuleList()
 
 
-    def Append_Block_to_Branch(self,Bl,Br):
-        #Append a branch to a block
-        block = copy.deepcopy(Bl)
-        branch = copy.deepcopy(Br)
-
-        block_layers = list(block.keys())
-        branch_layers = list(branch.keys())
-        normal_layer_need = True
-        count = 0
-        channel_sum = 0
-
-        while normal_layer_need:
-            count = count - 1
-            if b1_layers[count][0] not in ['MaxPool1d','Dropout']:
-                last_normal_layer = count
-                normal_layer_need = False
+            if self.order[i] == 'branch':
+                ind_branch = ind_branch + 1
+                BRANCH = self.ALL_BRANCHES[str(ind_branch)]
 
 
+                for BLOCK in list(BRANCH.keys()):
+                    self.sub_list = nn.ModuleDict()
+                    self.layers = nn.ModuleList()
 
-def Network(MAIN_OBJ):
-    def __init__(self, single_input = True):
-        if single_input:
-            self.seq_len = int(input('provide sequence length \n'))
-            self.in_channels = int(input('provide feature size \n'))
-        else:
-            seq_lengths = input('provide sequence lengths \n')
-            in_channels = int(input('provide feature size \n'))
+                    for LAYER in list(BRANCH[BLOCK].keys()):
+                        ARGS = BRANCH[BLOCK][LAYER][1]
+                        TYPE = BRANCH[BLOCK][LAYER][0]
+                        self.layers = self.layer_add(self.layers,TYPE,*ARGS)
+                    self.sub_list[BLOCK] = self.layers
+                    self.THE_LIST['branch-' + str(ind_branch)] = self.sub_list
 
-            seq_lengths = seq_lengths.split(",")
-            self.seq_len_list =  [int(x) for x in seq_lengths]
- 
+            elif self.order[i] == 'block':
+                ind_block = ind_block + 1
+                print(list(self.ALL_NETWORKS[str(ind_block)].keys()))
+                BLOCK = self.ALL_NETWORKS[str(ind_block)]
+                for LAYER in list(BLOCK.keys()):
+                    TYPE = BLOCK[LAYER][0]
+                    ARGS = BLOCK[LAYER][1]
+                    self.layers = self.layer_add(self.layers,TYPE,*ARGS)
+                self.THE_LIST['block-' + str(ind_block)] = self.layers
 
+
+                
+    def layer_add(self,submodule,key,*args):
+        submodule.append(self.layer_set(key,*args))
+        return submodule
+
+
+    def layer_set(self,key,*args):
+        ## push args into key layer type, return it
+        ## push args into key layer type, return it
+        if key == 'conv1d':
+            print(*args)
+            return nn.Conv1d(*args)
+        elif key == 'LSTM':
+            return nn.LSTM(*args)
+        elif key == 'Linear':
+            return nn.Linear(*args)
+        elif key == 'Dropout':
+            return nn.Dropout(*args)
+        elif key == 'BatchNorm1d':
+            return nn.BatchNorm1d(*args)
+        elif key == 'Flatten':
+            return nn.Flatten()
+        elif key == 'ReLU':
+            return nn.ReLU()
+        elif key == 'MaxPool1d':
+            return nn.MaxPool1d(*args)
 
 
 
