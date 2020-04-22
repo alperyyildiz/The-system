@@ -3,6 +3,8 @@ import copy
 import numpy as np
 import torch 
 import torch.nn as nn
+
+
 class MAIN_OBJ():
     def __init__(self):
         super().__init__()
@@ -163,11 +165,9 @@ class MAIN_OBJ():
         #HARD CODING 2nd if
         for i,layer in enumerate(layer_list_str):
             if i is not 0:
-              print(layer)
+              print('layer number is: {}'.format(layer))
               if Dict_Block[layer][0] in ['Linear','conv1d']:
-                  print(out_channels)
                   Dict_Block[layer][1][0] = out_channels
-                  print(Dict_Block[layer][1][0])
                   out_channels =  Dict_Block[layer][1][1]
    
         self.Blocks[NAME] = Dict_Block
@@ -332,11 +332,12 @@ class MAIN_OBJ():
         #Set In_Channels
         for BLOCK in blocks:
             if At_The_Begin is False:
-                branch[BLOCK]['1'][1][0] = self.feature_size
+                branch[BLOCK]['1'][1][0] = self.out_channels
             else: 
-                branch[BLOCK]['1'][1][0] = self.out_channels    
+                branch[BLOCK]['1'][1][0] = self.feature_size
 
             if All_Flatten == True:
+                self.All_Flatten = True
                 layerlist_of_block = list(branch[BLOCK].keys())
                 branch[BLOCK][str(int(layerlist_of_block[-1]) + 1)] = ['Flatten', [1,-1]]
         out_channels_list = self.List_Output_Channels_of_Branch(branch)
@@ -439,8 +440,7 @@ class MAIN_OBJ():
     def Finish_Building(self):
         self.ALL_NETWORKS[str(self.num_of_networks)] = self.network
         self.order.append('block')
-        
-        
+
         
 class NET(MAIN_OBJ):
     def __init__(self):
@@ -462,65 +462,33 @@ class NET(MAIN_OBJ):
         self.order = list()
         
         
+
 class Model(nn.Module):
     def __init__(self, SOURCE_OBJ):
         super().__init__()
         self.play_list = nn.ModuleDict()
         self.__dict__.update(SOURCE_OBJ.__dict__)
+
         ind_branch = 0
         ind_block = 0
-        self.THE_LIST = nn.ModuleDict()
-        for i in range(self.num_of_branches + self.num_of_networks):
-            self.layers = nn.ModuleList()
+        self.layers = nn.ModuleList()
 
+        for i in range(self.num_of_branches + self.num_of_networks):
 
             if self.order[i] == 'branch':
                 ind_branch = ind_branch + 1
-                BRANCH = self.ALL_BRANCHES[str(ind_branch)]
-
-                self.sub_list = nn.ModuleDict()
-
-                for BLOCK in list(BRANCH.keys()):
-                    self.layers = nn.ModuleList()
-
-                    for LAYER in list(BRANCH[BLOCK].keys()):
-                        ARGS = BRANCH[BLOCK][LAYER][1]
-                        TYPE = BRANCH[BLOCK][LAYER][0]
-                        self.layers = self.layer_add(self.layers,TYPE,*ARGS)
-                    self.sub_list[BLOCK] = self.layers
-                    self.THE_LIST['branch-' + str(ind_branch)] = self.sub_list
+                self.layers.append(Branch(self.ALL_BRANCHES[str(ind_branch)]))
 
             elif self.order[i] == 'block':
                 ind_block = ind_block + 1
-                BLOCK = self.ALL_NETWORKS[str(ind_block)]
-                for LAYER in list(BLOCK.keys()):
-                    TYPE = BLOCK[LAYER][0]
-                    ARGS = BLOCK[LAYER][1]
-                    self.layers = self.layer_add(self.layers,TYPE,*ARGS)
-                self.THE_LIST['block-' + str(ind_block)] = self.layers
+                self.layers.append(Block(self.ALL_NETWORKS[str(ind_block)]))
 
 
-    def forward(self,x,y):
-        blocks_and_branches = list(self.THE_LIST.keys())
-
-        for PART in blocks_and_branches:
-            part_list = PART.split('-')
-
-            #BLOCK FORWARD
-            if part_list[0] == 'block':
-                for LAYER in self.THE_LIST[PART]:
-                    x = LAYER(x)
-                return x
-            #BRANCH FORWARD
-            elif part_list[0] == 'branch':
-                block_list = list(self.THE_LIST[PART].keys())
-                tensor_list = list()
-
-                for i, BLOCK in enumerate(block_list): 
-                    block_out = self.THE_LIST[PART][BLOCK](x)
-                    y = torch.cat((y,x),dim=1)
+    def forward(self,x):
+        for LAYER in self.layers:
+            x = LAYER(x)
+        return x
                     
-                return y
     def layer_add(self,submodule,key,*args):
         submodule.append(self.layer_set(key,*args))
         return submodule
@@ -549,4 +517,98 @@ class Model(nn.Module):
 
 
 
+class Block(nn.Module):
+    def __init__(self,BLOCK):
+        super().__init__()
+        LAYER_LIST = list(BLOCK.keys())
 
+        self.layers = nn.ModuleList()
+        for LAYER in LAYER_LIST:
+            TYPE = BLOCK[LAYER][0]
+            ARGS = BLOCK[LAYER][1]
+            self.layers = self.layer_add(self.layers,TYPE,*ARGS)
+        
+    def forward(self,x):
+        for LAYER in self.layers:
+            x = LAYER(x)
+        return x
+                    
+    def layer_add(self,submodule,key,*args):
+        submodule.append(self.layer_set(key,*args))
+        return submodule
+
+
+    def layer_set(self,key,*args):
+        ## push args into key layer type, return it
+        ## push args into key layer type, return it
+        if key == 'conv1d':
+            return nn.Conv1d(*args)
+        elif key == 'LSTM':
+            return nn.LSTM(*args)
+        elif key == 'Linear':
+            return nn.Linear(*args)
+        elif key == 'Dropout':
+            return nn.Dropout(*args)
+        elif key == 'BatchNorm1d':
+            return nn.BatchNorm1d(*args)
+        elif key == 'Flatten':
+            return nn.Flatten()
+        elif key == 'ReLU':
+            return nn.ReLU()
+        elif key == 'MaxPool1d':
+            return nn.MaxPool1d(*args)
+
+
+class Branch(nn.Module):
+    def __init__(self,BRANCH):
+        super().__init__()
+
+        BLOCK_LIST = list(BRANCH.keys())
+        self.Blocks = nn.ModuleDict()
+        for BLOCK in BLOCK_LIST:
+            self.Blocks[BLOCK] = Block(BRANCH[BLOCK])
+        
+
+    def forward(self,x):
+        block_key_list = self.Blocks.keys()
+        for i, BLOCK in enumerate(block_key_list):
+            if i == 0:
+                branch_concat_out = torch.Tensor(self.Blocks[BLOCK](x))
+            else:
+                branch_concat_out = torch.cat([branch_concat_out,self.Blocks[BLOCK](x)],dim = 1)
+        return branch_concat_out
+    def layer_add(self,submodule,key,*args):
+        submodule.append(self.layer_set(key,*args))
+        return submodule
+
+    def layer_set(self,key,*args):
+        ## push args into key layer type, return it
+        ## push args into key layer type, return it
+        if key == 'conv1d':
+            return nn.Conv1d(*args)
+        elif key == 'LSTM':
+            return nn.LSTM(*args)
+        elif key == 'Linear':
+            return nn.Linear(*args)
+        elif key == 'Dropout':
+            return nn.Dropout(*args)
+        elif key == 'BatchNorm1d':
+            return nn.BatchNorm1d(*args)
+        elif key == 'Flatten':
+            return nn.Flatten()
+        elif key == 'ReLU':
+            return nn.ReLU()
+        elif key == 'MaxPool1d':
+            return nn.MaxPool1d(*args)
+        
+        
+NN = NET()
+
+NN.Branches_Created = BB
+NN.Blocks = DD
+
+NN.Append_Block_to_Network(NN.Blocks['5con'])
+NN.Append_Block_to_Network(NN.Blocks['5con'])
+NN.Append_Branch_to_Network(NN.Branches_Created['branchbaby'],True)
+NN.Append_Block_to_Network(NN.Blocks['End'])
+NN.Finish_Building()
