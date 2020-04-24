@@ -152,35 +152,37 @@ class MAIN_OBJ():
 #============================================================================INPUT REWORKS=========================================================================================
 #============================================================================TRACK SEQ AND CH=========================================================================================
 
-    def track_seq_len_branch(self,Branch, seq_len_list):
-        BRANCH = copy.deepcopy(Branch)
+    def track_seq_len_branch(self,BRANCH, seq_len_list):
         BB_keys = list(BRANCH.keys())
         BB_keys = self.splitter(BB_keys)
-        seq_len_list = list()
+        final_seq_len_list = list()
         Flat = self.check_flatten_branch(BRANCH)
         for bb_number,[TYPE,NUM] in enumerate(BB_keys):
 
             BB = BRANCH[TYPE + '-' + NUM]
 
             if TYPE == 'block':              
-                seq_len_list.append(self.track_seq_len_block(BB,seq_len_list(bb_number)))
+                final_seq_len_list.append(self.track_seq_len_block(BB,seq_len_list[bb_number]))
             elif TYPE == 'branch':
-                sel_len_list.append(self.track_seq_len_branch(BB,seq_len_list(bb_number)))
+                final_seq_len_list.append(self.track_seq_len_branch(BB,seq_len_list[bb_number]))
         
         
-        All_Same = all(x == seq_len_list[0] for x in seq_len_list)
+        All_Same = all(x == final_seq_len_list[0] for x in final_seq_len_list)
         Flat = self.check_flatten_branch(BRANCH)
 
-        if ALL_Same == False and Flat == False:
+        if All_Same == False and Flat == False:
             raise Exception('You Will Have Dimension Problems \n Sequences are not equal \n Flatten is Not Used')
+        if Flat == True:
+            seq_len = 1
+        elif Flat == False:
+            seq_len = final_seq_len_list[0]
 
         return seq_len
                 
     def track_seq_len_block(self, Block, seq_len):
-        BLOCK = copy.deepcopy(Block)
-        block_layers = list(BLOCK.keys())
+        block_layers = list(Block.keys())
         for layer in block_layers:
-            seq_len = self.track_seq_len(BLOCK[layer])
+            seq_len = self.track_seq_len(Block[layer],seq_len)
         return seq_len
 
     def track_seq_len(self,layer,seq_length):
@@ -188,19 +190,18 @@ class MAIN_OBJ():
         #Used to calculate input channels for the layer after flatten
         #Also will be used for debugging in the future
 
-        params = block[layer][1]
-        if block[layer][0] == 'conv1d':
+        params = layer[1]
+        if layer[0] == 'conv1d':
             seq_length = int(np.floor((seq_length + 2*params[4] - params[5]*(params[2]-1)-1)/params[3] + 1))
-        elif block[layer][0] == 'MaxPool1d':
+        elif layer[0] == 'MaxPool1d':
             seq_length = int(np.floor((seq_length + 2*params[2] - params[3]*(params[0]-1)-1)/params[1] + 1))
-        elif block[layer][0] == 'Flatten':
+        elif layer[0] == 'Flatten':
             seq_length =  1
 
         return seq_length
 
 
-    def track_out_channels_branch(self,branch,out_channels,seq_len_list):
-        BRANCH = copy.deepcopy(Branch)
+    def track_out_channels_branch(self,BRANCH,out_channels,seq_len_list):
         BB_keys = list(BRANCH.keys())
         BB_keys = self.splitter(BB_keys)
         out_channels_list = list()
@@ -209,6 +210,7 @@ class MAIN_OBJ():
         for bb_num, [TYPE,NUM] in enumerate(BB_keys):
             BB = BRANCH[TYPE + '-' + NUM]
             if TYPE == 'block':
+                print(seq_len_list)
                 out_channels_list.append(self.track_out_channels_block(BB,out_channels,seq_len_list[bb_num]))
             elif TYPE == 'branch':
                 out_channels_list.append(self.track_out_channels_branch(BB,out_channels,seq_len_list[bb_num]))
@@ -221,11 +223,10 @@ class MAIN_OBJ():
             
 
 
-    def track_out_channels_block(self, block, out_channels, seq_len):
-        BLOCK = copy.deepcopy(Block)
+    def track_out_channels_block(self, BLOCK, out_channels, seq_len):
         block_layers = list(BLOCK.keys())
         for layer in block_layers:
-            out_channels = self.track_out_channels(BLOCK[layer],out_channels)
+            out_channels = self.track_out_channels(BLOCK[layer],out_channels,seq_len)
         return out_channels
             
     def track_out_channels(self,layer,out_channels, seq_len):
@@ -452,8 +453,8 @@ class MAIN_OBJ():
 
         self.Branches_Created[NAME] = Dict_Branch
 
-        
-        
+
+
 class NET(MAIN_OBJ):
     def __init__(self):
         super().__init__()
@@ -489,26 +490,34 @@ class NET(MAIN_OBJ):
         #set count to 0 and in_channels to feature_size
         if self.First == True:
             self.Branch_First = False
-            self.num_of_blocks = self.num_of_blocks + 1
-            BLOCK[block_layers[0]][1][0] = self.feature_size
-            count = 0
-        #if network initialized before
-        #set in_channels and set count 
-        elif self.First == False:
-            BLOCK[block_layers[0]][1][0] = self.out_channels
-            
+            self.out_channels = self.feature_size
 
+            count = 0
+
+        BLOCK[block_layers[0]][1][0] = self.out_channels
+          
         #track out channels and seqeunce length  
         self.out_channels, self.seq_len = self.track_seq_and_ch_block(BLOCK,self.out_channels,self.seq_len)
-
 
         #Append block layers to network
         self.num_of_blocks = self.num_of_blocks + 1 
         self.ALL_BLOCKS[str(self.num_of_blocks )] = BLOCK
         self.order.append('block')
+        self.First = False
 
+    def push_ch_to_block(self,BLOCK,out_channels):
+        BLOCK['1'][1][0] = out_channels
+        return BLOCK
 
-
+    def push_ch_to_branch(self,BRANCH,out_channels):
+        keys = list(BRANCH.keys())
+        keys = self.splitter(keys)
+        for [TYPE,NUM] in keys:
+            if TYPE == 'block':
+                BRANCH[TYPE + '-' + NUM] = self.push_ch_to_block(BRANCH[TYPE + '-' + NUM],out_channels)
+            elif TYPE == 'branch':
+                BRANCH[TYPE + '-' + NUM] = self.push_ch_to_branch(BRANCH[TYPE + '-' + NUM],out_channels)
+                
 
 
     def Append_Branch_to_Network_v2(self,Branch,All_Flatten):
@@ -529,7 +538,7 @@ class NET(MAIN_OBJ):
         if self.First is False:
             init_seq_len_list = [self.seq_len for x in range(num_of_bb)] 
         else:
-        #
+            self.out_channels = self.feature_size
             self.Branch_First = True
             seq_list = input('Provide input sequences, separate them with comma(,) ')
             init_seq_len_list = seq_list.split(",")
@@ -537,14 +546,8 @@ class NET(MAIN_OBJ):
         #Check if all blocks have flatten layer
 
         #Set In_Channels
-        for [TYPE,NUM] in BB_keys:
-            if self.First == False:
-                BRANCH[BLOCK]['1'][1][0] = self.out_channels
-            elif self.First == True: 
-                BRANCH[BLOCK]['1'][1][0] = self.feature_size
-
-
-        self.out_channels, self.seq_len = self.track_seq_and_ch_branch(BRANCH,init_seq_len_list)
+        self.push_ch_to_branch(BRANCH,self.out_channels)
+        self.out_channels, self.seq_len = self.track_seq_and_ch_branch(BRANCH, self.out_channels, init_seq_len_list)
 
 
         self.num_of_branches = self.num_of_branches + 1 
@@ -588,22 +591,27 @@ class NET(MAIN_OBJ):
             raise Exception('Some are Flat, Some are Not')
             
   
-    def track_seq_and_ch(self,Layer,seq_len,out_channels):
+    def track_seq_and_ch(self,Layer,out_channels,seq_len):
         out_channels = self.track_out_channels(Layer,out_channels,seq_len)
         seq_len = self.track_seq_len(Layer,seq_len)
         return out_channels, seq_len
 
-    def track_seq_and_ch_block(self, Block, seq_len, out_channels):
-        BLOCK = copy.deepcopy(Block)
+    def track_seq_and_ch_block(self, BLOCK, out_channels, seq_len):
         out_channels = self.track_out_channels_block(BLOCK, out_channels, seq_len)
         seq_len = self.track_seq_len_block(BLOCK,seq_len)
         return out_channels, seq_len
 
-    def track_seq_and_ch_branch(self, Branch, seq_len_list, out_channels):
-        BRANCH = copy.deepcopy(Branch)
+    def track_seq_and_ch_branch(self, BRANCH, out_channels, seq_len_list):
+        print('track_seq_and_ch_branch {}'.format(seq_len_list))
         out_channels = self.track_out_channels_branch(BRANCH, out_channels,seq_len_list)
         seq_len = self.track_seq_len_branch(BRANCH,seq_len_list)
         return out_channels, seq_len
+    def splitter(self,key_list, sep = '-'):
+        num_of_keys = len(key_list)
+        for key in range(num_of_keys):
+            key_list[key] = key_list[key].split(sep)
+        return key_list
+    
 
 class Model(nn.Module):
     def __init__(self, SOURCE_OBJ):
@@ -712,20 +720,20 @@ class Branch(nn.Module):
 
         for [B_or_B,num] in KEY_LIST:
             if B_or_B == 'block':
-                self.BB[B_or_B + '=' + num] = Block(BRANCH[B_or_B + '-' + num])
+                self.BB[B_or_B + '-' + num] = Block(BRANCH[B_or_B + '-' + num])
             elif B_or_B == 'branch':
-                self.BB[B_or_B + '=' + num] = Branch(BRANCH[B_or_B + '-' + num])
+                self.BB[B_or_B + '-' + num] = Branch(BRANCH[B_or_B + '-' + num])
                 
 
     def forward(self,x):
         block_key_list = list(self.BB.keys())
-        block_key_list = self.splitter(block_key_list,'=')
+        block_key_list = self.splitter(block_key_list,'-')
 
         for i, [TYPE ,NUM] in enumerate(block_key_list):
             if i == 0:
-                branch_concat_out = torch.Tensor(self.BB[TYPE + '=' +NUM](x))
+                branch_concat_out = torch.Tensor(self.BB[TYPE + '-' +NUM](x))
             else:
-                branch_concat_out = torch.cat([branch_concat_out,self.BB[TYPE + '=' + NUM](x)],dim = 1)
+                branch_concat_out = torch.cat([branch_concat_out,self.BB[TYPE + '-' + NUM](x)],dim = 1)
         return branch_concat_out
 
     def splitter(self,key_list, sep = '-'):
@@ -733,6 +741,3 @@ class Branch(nn.Module):
         for key in range(num_of_keys):
             key_list[key] = key_list[key].split(sep)
         return key_list
-
-
-
