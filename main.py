@@ -564,7 +564,7 @@ class Data():
         DATA = DATA.dropna( axis = 'columns', how = 'all' ).ffill()
         DATA = DATA.dropna( how = 'any' )
 
-        out_col = list(compress(range(len(data.keys() == 'Close')), data.keys() == 'Close'))[0]
+        out_col = list(compress(range(len(DATA.keys() == 'Close')), DATA.keys() == 'Close'))[0]
 
 
         #APPEND FOURIER AS FEATURE 
@@ -572,7 +572,7 @@ class Data():
 
         #SPLIT DATA WITH SPECIFIED PERCENTAGES
         percentages  = {'train': 0.7, 'val': 0.2, 'test': 0.1 }
-        TRAIN, VAL, TEST = self.train_val_test_split( data, percentages, output_size = out_size , window_len = window_len )
+        TRAIN, VAL, TEST = self.train_val_test_split( DATA, percentages, output_size = out_size , window_len = window_len )
 
         #SAVE DATES 
         #SAVE DATES 
@@ -595,13 +595,14 @@ class Data():
         #DROP OUTS
         #DROP OUTS 
         TRAIN, VAL, TEST = np.delete(TRAIN, out_col, axis = 1 ), np.delete(VAL, out_col, axis = 1 ), np.delete(TEST, out_col, axis = 1 )
+        
 
         #SLIDING WINDOW
         #SLIDING WINDOW  
         self.date_TRAIN, self.date_VAL, self.date_TEST = self.sliding_window_df(self.date_TRAIN), self.sliding_window_df(self.date_VAL), self.sliding_window_df(self.date_TEST)
         TRAIN, VAL, TEST =  np.array(self.sliding_window_df(TRAIN)).swapaxes(1,2),  np.array(self.sliding_window_df(VAL)).swapaxes(1,2),  np.array(self.sliding_window_df(TEST)).swapaxes(1,2)
         TRAIN_OUT, VAL_OUT, TEST_OUT =  np.array( self.sliding_window_df( TRAIN_OUT, OUTPUT = True ) ),  np.array( self.sliding_window_df( VAL_OUT, OUTPUT = True) ),  np.array( self.sliding_window_df( TEST_OUT, OUTPUT = True ) )
-      
+        
         #CONVERT DATA TO TENSOR
         #CONVERT DATA TO TENSOR
         total_nan = list( [np.count_nonzero(~np.isnan(TRAIN)),
@@ -610,11 +611,9 @@ class Data():
                          np.count_nonzero(~np.isnan(TRAIN_OUT)),
                          np.count_nonzero(~np.isnan(VAL_OUT)),
                          np.count_nonzero(~np.isnan(TEST_OUT))] ) 
-        print('# of NaNs respectively ---> {}'.format(total_nan))
         TRAIN, VAL, TEST = torch.Tensor( TRAIN ), torch.Tensor( VAL ), torch.Tensor( TEST )
         TRAIN_OUT, VAL_OUT, TEST_OUT = torch.Tensor( TRAIN_OUT  ), torch.Tensor(VAL_OUT ), torch.Tensor( TEST_OUT )
         self.feature_size = TRAIN.shape[1]
-        print(TRAIN.shape)
         #COMBINE INPS WITH OUTS
         #COMBINE INPS WITH OUTS
         TRAIN_DS, VAL_DS, TEST_DS = TensorDataset( TRAIN, TRAIN_OUT ), TensorDataset( VAL, VAL_OUT ), TensorDataset( TEST, TEST_OUT )
@@ -762,7 +761,6 @@ class Model(nn.Module):
         self.layers = nn.ModuleList()
 
         for i in range(self.num_of_branches + self.num_of_blocks):
-            print(i)
 
             if self.order[i] == 'branch':
                 ind_branch = ind_branch + 1
@@ -775,7 +773,6 @@ class Model(nn.Module):
 
     def forward(self,x):
         for LAYER in self.layers:
-            print(x)
             x = LAYER(x)
         return x
 
@@ -858,7 +855,6 @@ class Block(nn.Module):
     def forward(self,x):
         for LAYER in self.layers:
             x = LAYER(x)
-
         return x
 
                     
@@ -871,7 +867,6 @@ class Block(nn.Module):
         ## push args into key layer type, return it
         ## push args into key layer type, return it
         if key == 'conv1d':
-            print(*args)
             return nn.Conv1d(*args)
         elif key == 'LSTM':
             return LST(*args[:-1])
@@ -926,22 +921,3 @@ class Branch(nn.Module):
 #============================================================================ MODEL =========================================================================================
 #============================================================================ MODEL =========================================================================================
 #============================================================================ MODEL =========================================================================================
-
-
-dd = Data( window_len = 100 )
-dd.data = data
-dd.Preprocess(dd.data, date_col_name = 'Date', out_col_name = 'Close')
-
-
-NN = NET(dd)
-NN.Blocks = BLOCKS_EXIST
-NN.Branches_Created = BRANCHES_EXIST
-
-NN.Append_Block_to_Network_v2(NN.Blocks['testbl'])
-NN.Append_Branch_to_Network_v2(NN.Branches_Created['testb'])
-NN.Append_Block_to_Network_v2(NN.Blocks['End'])
-
-model = Model( NN, dd )
-model.optimizer = optim.Adam(model.parameters(),lr = 0.00001)
-
-minloss = model.fit()
