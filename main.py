@@ -34,6 +34,10 @@ class MAIN_OBJ():
                             'Flatten': [int,int]
                             }
         #Default layer parameters from pytorch docs.
+        self.Normal_Layers = ['conv1d', 'conv2d', 'conv1dTranspose', 'conv2dTranspose'] #out channels reworked, first param will be skipped
+        self.Neutral_Layers = ['BatchNorm1d', 'BatchNorm2d', 'BatchNorm3d' ]            #gets out channels, not changes it, skip no params  
+        self.Only_Parameter_Layers = ['Dropout', '' ]                                      #only params
+        self.Activation_Layers = ['relu', 'sigmoid', 'tanh', ]
         self.Def_Params = {'conv1d': {'in_channels': None,
                                       'out_channels':None,
                                       'kernel_size':None,
@@ -43,26 +47,6 @@ class MAIN_OBJ():
                                       'groups':1, 
                                       'bias':True,
                                       'padding_mode': 'zeros'},
-                           'conv1dTranspose':{'in_channels':None,
-                                              'out_channels':None,
-                                              'kernel_size':None, 
-                                              'stride':1,
-                                              'padding':0, 
-                                              'output_padding':0,
-                                              'groups':1, 
-                                              'bias':True,
-                                              'dilation':1, 
-                                              'padding_mode':'zeros'},
-                           'LSTM': {'input_size': None,
-                                    'hidden_size': None,
-                                    'num_layers': 1,
-                                    'bias': True,
-                                    'batch_first': True,
-                                    'dropout': 0,
-                                    'bidirectional': False,
-                                    'train_batch_size': None},
-
-
                            'conv2d': {'in_channels':None,
                                       'out_channels':None,
                                       'kernel_size':None,
@@ -72,8 +56,26 @@ class MAIN_OBJ():
                                       'groups':1, 
                                       'bias':True, 
                                       'padding_mode':'zeros'},
+                           'conv3d': {'in_channels': None,
+                                      'out_channels',
+                                      'kernel_size', 
+                                      'stride':1,
+                                      'padding':0,
+                                      'dilation':1,
+                                      'groups':1,
+                                      'bias':True,
+                                      'padding_mode':'zeros'},
                            
-                           
+                           'conv1dTranspose':{'in_channels':None,
+                                              'out_channels':None,
+                                              'kernel_size':None, 
+                                              'stride':1,
+                                              'padding':0, 
+                                              'output_padding':0,
+                                              'groups':1, 
+                                              'bias':True,
+                                              'dilation':1, 
+                                              'padding_mode':'zeros'},   
                            'conv2dTranspose': {'in_channels':None,
                                                'out_channels':None,
                                                'kernel_size':None,
@@ -84,60 +86,195 @@ class MAIN_OBJ():
                                                'bias':True,
                                                'dilation':1,
                                                'padding_mode':'zeros'},
+                           'conv3dTranspose': {'in_channels':None,
+                                               'out_channels':None,
+                                               'kernel_size':None,
+                                               'stride':1,
+                                               'padding':0,
+                                               'output_padding':0, 
+                                               'groups':1,
+                                               'bias':True,
+                                               'dilation':1,
+                                               'padding_mode':'zeros'},
+                           'GRU': {'input_size': None,
+                                    'hidden_size': None,
+                                    'num_layers': 1,
+                                    'bias': True,
+                                    'batch_first': True,
+                                    'dropout': 0,
+                                    'bidirectional': False,
+                                    'train_batch_size': None},
+                           'LSTM': {'input_size': None,
+                                    'hidden_size': None,
+                                    'num_layers': 1,
+                                    'bias': True,
+                                    'batch_first': True,
+                                    'dropout': 0,
+                                    'bidirectional': False,
+                                    'train_batch_size': None},
                            
                            'Linear': {'in_features':None,
                                       'out_features':None,
                                       'bias':True},
+                           'Bilinear':{'in1_features':None, 'in2_features':None, 'out_features':None, 'bias':True}
+
+                           'Embedding': {'num_embeddings':None, 'embedding_dim':None, 'padding_idx':None, 'max_norm':None, 'norm_type':2.0, 'scale_grad_by_freq':False, 'sparse':False, '_weight':None}
+                           'EmbeddingBag': {'num_embeddings':None, 'embedding_dim':None, 'padding_idx':None, 'max_norm':None, 'norm_type':2.0, 'scale_grad_by_freq':False, 'sparse':False, '_weight':None}
+                           #===================   POOL POOL POOL ===================#
+                           'AvgPool1d': {'kernel_size':None, 'stride':1,'padding':0,'ceil_mode':False,'count_include_pad':True},
+                           'AvgPool2d': {'kernel_size':None, 'stride':1,'padding':0,'ceil_mode':False,'count_include_pad':True,'divisor_override':None},
+                           'AvgPool3d': {'kernel_size':None, 'stride':1,'padding':0,'ceil_mode':False,'count_include_pad':True,'divisor_override':None},
+                           'MaxPool1d': {'kernel_size':None, 'stride':1,'padding':0,'dilation':1,'return_indices':False,'ceil_mode':False},
+                           'MaxPool2d': {'kernel_size':None, 'stride':1,'padding':0,'dilation':1, 'return_indices':False,'ceil_mode':False},
+                           'MaxPool3d': {'kernel_size':None, 'stride':1,'padding':0,'dilation':1, 'return_indices':False,'ceil_mode':False},
+                           'FractionalMaxPool2d': {'kernel_size':None,'output_size':None,'output_ratio':None,'return_indices':False,'_random_samples':None},
+                           'LPPool1d':{'norm_type':None, 'kernel_size':None,'stride':None,'ceil_mode':False},
+                           'LPPool2d':{'norm_type':None,'kernel_size':None,'stride':None,'ceil_mode':False},
+                           'AdaptiveMaxPool1d': {'output_size':None,'return_indices':False},
+                           'AdaptiveMaxPool2d': {'output_size':None,'return_indices':False},
+                           'AdaptiveMaxPool3d': {'output_size':None,'return_indices':False},
+                           'AdaptiveAvgPool1d':{'output_size':None},
+                           'AdaptiveAvgPool2d':{'output_size':None},
+                           'AdaptiveAvgPool3d':{'output_size':None},
+                           #===================   POOL POOL POOL ===================#
+
+
+                           #===================   PAD PAD PAD ===================#
+                           'ReflectionPad1d':{'padding':None},
+                           'ReflectionPad2d':{'padding':None},
+                           'ReplicationPad1d':{'padding':None},
+                           'ReplicationPad2d':{'padding':None},
+                           'ReplicationPad3d':{'padding':None},
+                           'ZeroPad2d':{'padding':None},
+                           'ConstantPad1d':{'padding':None,'value':None},
+                           'ConstantPad2d':{'padding':None,'value':None},
+                           'ConstantPad3d':{'padding':None,'value':None},
+                           #===================   PAD PAD PAD ===================#
+
+
+                           #===================   UNPOOL UNPOOL ===================#
+                           'MaxUnpool1d':{'kernel_size': None,'stride': None,'padding': 0},
+                           'MaxUnpool2d':{'kernel_size': None,'stride': None,'padding': 0},
+                           'MaxUnpool3d':{'kernel_size': None,'stride': None,'padding': 0},
+                           #===================   UNPOOL UNPOOL ===================#
+
+
+
+                           #=================== BATCHNORM ===================#
+                           'BatchNorm1d': {'num_features':None,'eps':1e-05, 'momentum':0.1, 'affine':True,'track_running_stats':True},
+                           'BatchNorm2d': {'num_features':None,'eps':1e-05,'momentum':0.1,'affine':True,'track_running_stats':True},
+                           'BatchNorm3d': {'num_features':None,'eps':1e-05,'momentum':0.1,'affine':True,'track_running_stats':True},
+                           'SyncBatchNorm': {'num_features':None,'eps':1e-05,'momentum':0.1,'affine':True,'track_running_stats':True},
+                           'InstanceNorm1d': {'num_features':None,'eps':1e-05,'momentum':0.1,'affine':True,'track_running_stats':True},
+                           'InstanceNorm2d': {'num_features':None,'eps':1e-05,'momentum':0.1,'affine':True,'track_running_stats':True},
+                           'InstanceNorm3d': {'num_features':None,'eps':1e-05,'momentum':0.1,'affine':True,'track_running_stats':True},
+                           'LayerNorm':{'normalized_shape':None, 'eps':1e-05,'elementwise_affline':True},
+                           'LocalResponseNorm': {'size':None, 'alpha':0.0001,'beta':0.75,}
+                           #===================  BATCHNORM ===================#
+
+                           #===================  ACTIVATIONS ===================#
+                           'ELU':{'alpha':1.0, 'inplace':False},
+                           'Hardshrink': {'lambd':0.5},
+                           'Hardtanh':{'min_val':-1.0, 'max_val':1.0, 'inplace':False, 'min_value':None, 'max_value':None},
+                           'LeakyReLU':{'negative_slope': 0.01, 'inplace' :False},
+                           'MultiheadAttention': {'embed_dim':None, 'num_heads':None,'dropout':0.0,'bias':True,'add_bias_kv':False,'add_zero_attn':False, 'kdim':None, 'vdim'None},
+                           'PReLU': {'num_parameters': 1, 'init': 0.25},
+                           'ReLU':{'inplace':False},
+                           'ReLU6':{'inplace':False},
+                           'RReLU':{'lower':0.125, 'upper':0.3333333333333333, 'inplace':False},
+                           'SELU':{'inplace':False},
+                           'CELU':{'alpha': 1.0, 'inplace':False},
+                           'GELU':{},
+                           'Sigmoid': {},
+                           'Softplus':{'beta':1,'threshold':20},
+                           'Softshrink':{'lambd':0.5},
+                           'Softsign':{},
+                           'Tanh': {},
+                           'Tanshrink':{},
+                           'Threshold':{'threshold':None,'value':None, 'inplace':False},
+                           'Softmin':{'dim':None},
+                           'Softmax':{'dim':None},
+                           'Softmax':{},
+                           'LogSoftmax':{'dim':None},
+                           'AdaptiveLogSoftmaxWithLoss': {'in_features':None, 'n_classes':None, 'cutoffs':None, 'div_value':4.0, 'head_bias':False}
+                           #===================  ACTIVATIONS ===================#
                            
-                           'MaxPool1d': {'kernel_size':None, 
-                                         'stride':1,
-                                         'padding':0,
-                                         'dilation':1,
-                                         'return_indices':False,
-                                         'ceil_mode':False},
-                           'MaxPool2d': {'kernel_size':None, 
-                                         'stride':1,
-                                         'padding':0,
-                                         'dilation':1, 
-                                         'return_indices':False,
-                                         'ceil_mode':False},
-                           
-                           'Flatten': {'start_dim':1, 
-                                       'end_dim':-1},
-                           
-                           'BatchNorm1d': {'num_features':None, 
-                                           'eps':1e-05, 
-                                           'momentum':0.1, 
-                                           'affine':True,
-                                           'track_running_stats':True},
-                           'BatchNorm2d': {'num_features':None,
-                                           'eps':1e-05,
-                                           'momentum':0.1,
-                                           'affine':True,
-                                           'track_running_stats':True},
-                           'Dropout': {'p':0.5,
-                                       'inplace': False}
+
+                           #===================  TRANSFORMERS ===================#
+                           'Transformer':{'d_model':512, 'nhead':8, 'num_encoder_layers':6, 'num_decoder_layers':6, 'dim_feedforward':2048,'dropout':0.1, 'activation':'relu', 'custom_encoder':None, 'custom_decoder':None},
+                           'TransformerEncoder':{'encoder_layer':None, 'num_layers':None, 'norm':None},
+                           'TransformerDecoder':{'decoder_layer':None, 'num_layers':None, 'norm':None},
+                           'TransformerEncoderLayer':{'d_model':None, 'nhead':None, 'dim_feedforward':2048, 'dropout':0.1, 'activation':'relu'},
+                           'TransformerDecoderLayer': {'d_model':None, 'nhead':None, 'dim_feedforward':2048, 'dropout':0.1, 'activation':'relu'},
+                           #===================  TRANSFORMERS ===================#
+
+
+
+                           #===================  DIST FUNC ===================#
+                           'CosineSimilarity': {'dim':1,'eps':1e-08},
+                           'PairwiseDistance': {'p':2.0, 'eps':1e-06, 'keepdim':False},
+                           #===================  DIST FUNC ===================#
+
+
+                           #===================  LOSS FUNC ===================#
+                           'L1Loss': {'size_average':None, 'reduce':None, 'reduction':'mean'},
+                           'MSELoss': {'size_average':None, 'reduce':None, 'reduction':'mean'},
+                           'CrossEntropyLoss':{'weight':None, 'size_average':None, 'ignore_index':-100, 'reduce':None, 'reduction':'mean'},
+                           'CTCLoss': {'blank':0, 'reduction':'mean', 'zero_infinity':False},
+                           'NLLLoss':{'weight':None, 'size_average':None, 'ignore_index':-100, 'reduce':None, 'reduction':'mean'},
+                           'PoissonNLLLoss':{'log_input':True, 'full':False, 'size_average':None, 'eps':1e-08, 'reduce':None, 'reduction':'mean'},
+                           'KLDivLoss': {'size_average':None, 'reduce':None, 'reduction':'mean'},
+                           'BCELoss': {'weight':None,'size_average':None, 'reduce':None, 'reduction':'mean'},
+                           'BCEWithLogitsLoss': {'weight':None,'size_average':None, 'reduce':None, 'reduction':'mean','pos_weight':None},
+                           'MarginRankingLoss': {'margin':0.0, 'size_average':None, 'reduce':None, 'reduction':'mean'},
+                           'HingeEmbeddingLoss':{'margin':0.0, 'size_average':None, 'reduce':None, 'reduction':'mean'},
+                           'MultiLabelMarginLoss':{'size_average':None, 'reduce':None, 'reduction':'mean'},
+                           'SmoothL1Loss': {'size_average':None, 'reduce':None, 'reduction':'mean'},
+                           'SoftMarginLoss':{'size_average':None, 'reduce':None, 'reduction':'mean'},
+                           'MultiLabelSoftMarginLoss':{'weight':None,'size_average':None, 'reduce':None, 'reduction':'mean'},
+                           'CosineEmbeddingLoss': {'margin':0.0, 'size_average':None, 'reduce':None, 'reduction':'mean'},
+                           'MultiMarginLoss': {'p':1, 'margin':1.0, 'weight':None, 'size_average':None, 'reduce':None, 'reduction':'mean'},
+                           'TripletMarginLoss': {'margin':1.0, 'p':2.0, 'eps':1e-06, 'swap':False, 'size_average':None, 'reduce':None, 'reduction':'mean'}
+                           'Upsample': {'size':None, 'scale_factor':None, 'mode':'nearest', 'align_corners':None},
+                           'UpsamplingNearest2d': {'size':None,'scale_factor':None},
+                           'UpsamplingBilinear2d':{'size':None, 'scale_factor':None},
+                           #===================  LOSS FUNC ===================#
+
+
+
+
+                           'Unfold': {'kernel_size':None, 'dilation':1,'padding':0,'stride':1},
+                           'Unfold': {'output_size':None,'kernel_size':None, 'dilation':1,'padding':0,'stride':1},
+
+                           'Flatten': {'start_dim':1, 'end_dim':-1},
+                           'Dropout': {'p':0.5, 'inplace': False},
+                           'Dropout2d': {'p':0.5, 'inplace': False},
+                           'Dropout3d': {'p':0.5, 'inplace': False},
+                           'AlphaDropout': {'p':0.5, 'inplace': False},
+
+
+
                            }
 
 
 #============================================================================INPUT REWORKS=========================================================================================
 
-    def input_reworker(self,type, input_params):
+    def input_reworker(self,typez, input_params):
         #Split inputs given by user
         #Set defaults if remain
         #Change dtype from str to corresponding types
         #Built in functions used which are initialized as self.input_types
         input_params = input_params.split(",")
-        type_def_params = list(self.Def_Params[type].values())
+        type_def_params = list(self.Def_Params[typez].values())
 
         for i in range(len(input_params)):
             if input_params[i] == '-':
-                if type == 'MaxPool1d' and i == 1:
+                if typez == 'MaxPool1d' and i == 1:
                     input_params[i] = input_params[i - 1]
                 else:
                     input_params[i] = type_def_params[i]
 
-        data_type_functions = self.input_types[type]
+        data_type_functions = self.input_types[typez]
         for i in range(len(input_params)):
             try: 
                 input_params[i] = data_type_functions[i](input_params[i])
@@ -226,29 +363,96 @@ class MAIN_OBJ():
         self.Blocks[NAME] = BLOCK
 
 
+    def get_lay_params(self):
+        TYPE = input('enter layer type: ')
 
+        if TYPE is 'Flatten':
+            input_params = self.Def_Params[TYPE]
+
+        elif TYPE == 'Dropout':
+            print(self.Def_Params[TYPE][0])
+            input_params = input()
+            input_params = self.input_reworker(TYPE, [ input_params, False ])
+        
+        elif TYPE in [ 'conv1d', 'conv2d', 'LSTM', 'Linear' ]:
+            print(self.Def_Params[TYPE][1:])
+            input_params = input()
+
+
+        else:
+            print('\n Seperate input with comma, write - for defalt value, ... for default rest \n')
+            print(self.Def_Params[TYPE])
+            print('\n')
+            input_params = input()
+            input_params = self.input_reworker(TYPE, input_params)
+            
+            if  input_params[-1] == '...':
+                input_params = input_params[:-1]
+                input_params.append( self.Def_Params[ TYPE ][ len(input_params) :  ]) 
+                if len( input_params ) != len( self.Def_Params[ TYPE ] ):
+                    raise Exception('lengths are not consistent')
+                
+
+        return [TYPE, input_params]
 
     def Create_Block(self):
         #Creates an ordered dictionary
         #Saves layer type with parameters specified by user
         NAME = input('Enter Block Name: ')
-        count =0
+        count = 0
         Add = True
         Dict_Block = OrderedDict()
 
         #While loop until user says stop
         while Add:
             count = count + 1
-            TYPE = input('enter layer type: ')
-            print('\n Seperate input with comma, write - for defalt value\n')
-            print(self.Def_Params[TYPE])
-            print('\n')
-            input_params = input()
-            input_params = self.input_reworker(TYPE, input_params)
-            layer_num = str(count)
-            Dict_Block[layer_num] = [TYPE, input_params]
-            add_value = input('You want to add more?? \n')
-            Add = self.Bool_Rework(add_value)
+            TYPE = input('enter entity type \n 1 --> Layer \n 2 --> Block \n 3 --> Branch ')
+            
+            if TYPE == '1':
+                entity_key = 'layer-' + str(count)
+                type_and_params = self.get_lay_params()
+                if type_and_params[0] == 'Flatten':
+                    add_value = False
+                else:
+                    add_value = input('You want to add more?')
+                    Add = self.Bool_Rework(add_value)
+
+                Dict_Block[ entity_key ] = type_and_params
+
+            
+            elif TYPE == '2':
+                entity_key = 'block-' + str(count)
+                print('select block \n')
+                print( list( self.blocks.keys() ) )
+                input_block = input()
+                INP_BLOCK =  self.Blocks[ input_block ]
+                type_and_params = [ entity_key, INP_BLOCK]
+                Dict_Block[ entity_key ] = type_and_params
+                Flat = self.check_flatten_block( INP_BLOCK )
+                if Flat == False:
+                    add_value = input('You want to add more?? \n')
+                    Add = self.Bool_Rework(add_value)
+
+                else:
+                    add_value = False
+            
+            elif TYPE == '3':
+                entity_key = 'branch-' + str(count)
+                print('select branch \n')
+                print( list( self.blocks.keys() ) )
+                input_branch = input()
+                INP_BRANCH =  self.Branches_Created[ input_branch ]
+                type_and_params = [ entity_key, INP_BRANCH ]
+                Dict_Block[ entity_key ] = type_and_params
+                Flat = self.check_flatten_branch( INP_BRANCH )
+                if Flat == False:
+                    add_value = input('You want to add more?? \n')
+                    Add = self.Bool_Rework(add_value)
+                else:
+                    add_value = False
+            
+
+            
 
         #Set parameters of consecutive layers
         #Notice we do not initialize layers
