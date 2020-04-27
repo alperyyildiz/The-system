@@ -330,7 +330,6 @@ class MAIN_OBJ():
     def track_out_channels(self,layer,out_channels, dim, num_of_dim):
         PARAMS = layer[1]
         TYPE = layer[0]
-        print(out_channels)
         if TYPE in self.COLLECT_OUT_CHANNELS_FROM:
             out_channels = PARAMS[1]
         elif TYPE == 'Flatten':
@@ -348,13 +347,11 @@ class MAIN_OBJ():
         key_value_list = list(self.Def_Params[TYPE].items() )
         values_list = [x for y,x in key_value_list]
         
-        if TYPE is self.Direct_Pass_Layers:
-            input_params = self.Def_Params[TYPE]
-
+        if TYPE in self.Direct_Pass_Layers:
+            input_params = values_list
         elif TYPE in self.Only_Parameter_Layers:
             print(key_value_list)
             input_params = input()
-            input_params = self.input_reworker(TYPE, input_params)
         
         elif TYPE in self.PUSH_OUT_CHANNELS_TO:
             print(key_value_list[1:])
@@ -364,12 +361,14 @@ class MAIN_OBJ():
             if  input_params[-1] == '...':
                 input_params = input_params[:-1]
                 input_params.extend( values_list[ len(input_params) :  ]) 
-            input_params = self.input_reworker(TYPE, input_params)
 
 
             if len( input_params ) != len( values_list ):
                 raise Exception('lengths are not consistent')
 
+        return TYPE, input_params
+
+'''
         else:
             print('\n Seperate input with comma, write - for defalt value, ... for default rest \n')
             print(self.Def_Params[TYPE])
@@ -382,10 +381,7 @@ class MAIN_OBJ():
                 if len( input_params ) != len( values_list ):
                     raise Exception('lengths are not consistent')
             input_params = self.input_reworker(TYPE, input_params)
-        print(TYPE)
-        return TYPE, input_params
-
-
+'''
 #============================================================================ DATA =========================================================================================
 #============================================================================ DATA =========================================================================================
 #============================================================================ DATA =========================================================================================
@@ -459,9 +455,6 @@ class Data():
         #SLIDING WINDOW  
         self.date_TRAIN, self.date_VAL, self.date_TEST = self.sliding_window_df(self.date_TRAIN), self.sliding_window_df(self.date_VAL), self.sliding_window_df(self.date_TEST)
         TRAIN, VAL, TEST =  np.array(self.sliding_window_df(TRAIN)).swapaxes(1,2),  np.array(self.sliding_window_df(VAL)).swapaxes(1,2),  np.array(self.sliding_window_df(TEST)).swapaxes(1,2)
-        TRAIN, VAL, TEST =  np.array(self.sliding_window_df(TRAIN)).swapaxes(1,2),  np.array(self.sliding_window_df(VAL)).swapaxes(1,2),  np.array(self.sliding_window_df(TEST)).swapaxes(1,2)
-
-        TRAIN_OUT, VAL_OUT, TEST_OUT =  np.array( self.sliding_window_df( TRAIN_OUT, OUTPUT = True ) ),  np.array( self.sliding_window_df( VAL_OUT, OUTPUT = True) ),  np.array( self.sliding_window_df( TEST_OUT, OUTPUT = True ) )
         TRAIN_OUT, VAL_OUT, TEST_OUT =  np.array( self.sliding_window_df( TRAIN_OUT, OUTPUT = True ) ),  np.array( self.sliding_window_df( VAL_OUT, OUTPUT = True) ),  np.array( self.sliding_window_df( TEST_OUT, OUTPUT = True ) )
         
         #CONVERT DATA TO TENSOR
@@ -594,197 +587,6 @@ class Data():
 #============================================================================ DATA =========================================================================================
 
 
-
-
-
-
-
-#============================================================================ MODEL =========================================================================================
-#============================================================================ MODEL =========================================================================================
-#============================================================================ MODEL =========================================================================================
-
-
-class Model(nn.Module):
-    def __init__( self, SOURCE_OBJ1, SOURCE_OBJ2 ):
-      
-
-        super().__init__()
-        self.__dict__.update(SOURCE_OBJ1.__dict__)
-        self.__dict__.update(SOURCE_OBJ2.__dict__)
-        self.TRAIN_DL = SOURCE_OBJ2.TRAIN_DL
-        self.VAL_DL = SOURCE_OBJ2.VAL_DL
-        self.TEST_DL = SOURCE_OBJ2.TEST_DL
-        ind_branch = 0
-        ind_block = 0
-        self.epoch = 500
-        self.lrate = 0.001
-        self.Loss_FUNC = F.mse_loss
-        self.layers = nn.ModuleList()
-
-        for i in range(self.num_of_branches + self.num_of_blocks):
-
-            if self.order[i] == 'branch':
-                ind_branch = ind_branch + 1
-                self.layers.append(Branch(self.ALL_BRANCHES[str(ind_branch)]))
-
-            elif self.order[i] == 'block':
-                ind_block = ind_block + 1
-                self.layers.append(Block(self.ALL_BLOCKS[str(ind_block)]))
-
-
-    def forward(self,x):
-        for LAYER in self.layers:
-            x = LAYER(x)
-        return x
-
-    def loss_batch(self, TR_INP, TR_OUT, opt=None):
-        model_out = self(TR_INP)
-        loss = self.Loss_FUNC(model_out, TR_OUT)
-        if opt is not None:
-            loss.backward(retain_graph=True)
-            opt.step()
-            opt.zero_grad()
-        return loss.item(), len(TR_INP)
-
-
-    def fit(self):
-        self.hist = list()
-        self.hist_valid = list()
-
-        for epoch in range(self.epoch):
-            batch_loss = 0
-            count = 0 
-            self.train()            
-            for TR_INP, TR_OUT in self.TRAIN_DL:
-                losses, nums = self.loss_batch(TR_INP, TR_OUT, opt = self.optimizer)
-                batch_loss = batch_loss + losses
-                count = count + 1
-            train_loss = batch_loss / count
-            self.hist.append(train_loss)
-            
-
-            self.eval()
-            with torch.no_grad():
-                losses, nums = zip(
-                    *[self.loss_batch(TR_INP, TR_OUT) for TR_INP, TR_OUT in self.VAL_DL]
-                )
-            val_loss = np.sum(np.multiply(losses, nums)) / np.sum(nums)
-            print('Train Loss:  {}  and Validation Loss:  {}'.format(train_loss, val_loss))
-
-            self.hist_valid.append(val_loss)
-
-            print('{}:   {}'.format(epoch,val_loss))
-        
-class LST(nn.Module):
-    def __init(self,param):
-        super().__init__()
-        
-        BSIZEOLSUN = param[-1]
-        self.init_hidden_states(param)
-
-    def init_hidden_states(self,param):
-        if param[5] == 2:
-            NUM_OF_DIRECTIONS = 2
-        else:
-            NUM_OF_DIRECTIONS = 1
-        
-        self.hidden = (torch.randn(param[2] * NUM_OF_DIRECTIONS, self.batch_size, param[1]),
-                       torch.randn(param[2] * NUM_OF_DIRECTIONS, self.batch_size, param[1]))
-
-
-                                 
-
-    def forward(x):
-        batchsize , features , windowlength = x.shape
-        x = x.reshape(batchsize, windowlength, features)
-        x, self.hidden = layer(x,self.hidden)
-        batchsize, windowlength, features = x.shape
-        x = x.reshape(batchsize, features, windowlength)
-        return x
-
-class Block(nn.Module):
-    def __init__(self,BLOCK):
-        super().__init__()
-        LAYER_LIST = list(BLOCK.keys())
-
-        self.layers = nn.ModuleList()
-        for LAYER in LAYER_LIST:
-            TYPE = BLOCK[LAYER][0]
-            ARGS = BLOCK[LAYER][1]
-            self.layers = self.layer_add(self.layers,TYPE,*ARGS)
-        
-    def forward(self,x):
-        for LAYER in self.layers:
-            x = LAYER(x)
-        return x
-
-                    
-    def layer_add(self,submodule,key,*args):
-        submodule.append(self.layer_set(key,*args))
-        return submodule
-
-
-    def layer_set(self,key,*args):
-        ## push args into key layer type, return it
-        ## push args into key layer type, return it
-        if key == 'conv1d':
-            return nn.Conv1d(*args)
-        elif key == 'LSTM':
-            return LST(*args[:-1])
-        elif key == 'Linear':
-            return nn.Linear(*args)
-        elif key == 'Dropout':
-            return nn.Dropout(*args)
-        elif key == 'BatchNorm1d':
-            return nn.BatchNorm1d(*args)
-        elif key == 'Flatten':
-            return nn.Flatten()
-        elif key == 'ReLU':
-            return nn.ReLU()
-        elif key == 'MaxPool1d':
-            return nn.MaxPool1d(*args)
-
-
-class Branch(nn.Module):
-    def __init__(self,BRANCH):
-        super().__init__()
-
-        the_list = list(BRANCH.keys())
-        self.BB = nn.ModuleDict()
-        KEY_LIST = self.splitter(the_list) 
-
-        for [B_or_B,num] in KEY_LIST:
-            if B_or_B == 'block':
-                self.BB[B_or_B + '-' + num] = Block(BRANCH[B_or_B + '-' + num])
-            elif B_or_B == 'branch':
-                self.BB[B_or_B + '-' + num] = Branch(BRANCH[B_or_B + '-' + num])
-                
-
-    def forward(self,x):
-        block_key_list = list(self.BB.keys())
-        block_key_list = self.splitter(block_key_list,'-')
-        
-        for i, [TYPE ,NUM] in enumerate(block_key_list):
-
-            if i == 0:
-                branch_concat_out = torch.Tensor(self.BB[TYPE + '-' +NUM](x))
-            else:
-                branch_concat_out = torch.cat([branch_concat_out,self.BB[TYPE + '-' + NUM](x)],dim = 1)
-
-        return branch_concat_out
-
-    def splitter(self, KEYS, sep = '-'):
-        key_list = copy.deepcopy(KEYS)
-        num_of_keys = len(key_list)
-        new_key_list = list()
-        for key in range(num_of_keys):
-            new_key_list.append(key_list[key].split(sep))
-        return new_key_list
-
-#============================================================================ MODEL =========================================================================================
-#============================================================================ MODEL =========================================================================================
-#============================================================================ MODEL =========================================================================================
-
 #============================================================================ NET =========================================================================================
 #============================================================================ NET =========================================================================================
 #============================================================================ NET =========================================================================================
@@ -905,26 +707,22 @@ class NET(MAIN_OBJ):
         BRANCH = copy.deepcopy(BRANCH)
         entity_keys = list(BRANCH.keys())
         entity_types = self.splitter(entity_keys)
-
-        if entity_types[0]  == 'block':
-            BRANCH['block-1'] = self.push_ch_to_block( BRANCH[ 'block-1' ], out_channels )
-        elif entity_types[0] == 'branch':
-            BRANCH['branch-1'] = self.push_ch_to_branch( BRANCH[ 'branch-1' ], out_channels )
+        
+        for i, ENTITY_KEY in enumerate(entity_keys): 
+            if entity_types[i][0]  == 'block':
+                BRANCH[ ENTITY_KEY ] = self.push_ch_to_block( BRANCH[ ENTITY_KEY ], out_channels )
+            elif entity_types[i][0] == 'branch':
+                BRANCH[ ENTITY_KEY ] = self.push_ch_to_branch( BRANCH[ ENTITY_KEY ], out_channels )
         return BRANCH
 
 
     def push_ch_to_layer(self,Layer, out_channels):
         LAYER = copy.deepcopy(Layer)
         TYPE = LAYER[0]
-        print('PUSH TO LAYER {} \n \n'.format(LAYER))
-        print('PUSH_OUT_CHANNELS_TO {}'.format(self.PUSH_OUT_CHANNELS_TO))
-        print('TYPE {}'.format(TYPE))
-        
-
-
+      
         if TYPE in self.PUSH_OUT_CHANNELS_TO:
             LAYER[1][0] = out_channels
-        print('PUSH TO LAYER {}'.format(LAYER))
+
 
         return LAYER
 
@@ -984,7 +782,6 @@ class NET(MAIN_OBJ):
     def track_dim_and_ch(self,Layer,out_channels,dim, num_of_dim ):
         LAYER = copy.deepcopy( Layer )
         out_channels = self.track_out_channels( LAYER, out_channels, dim, num_of_dim)
-        print(out_channels)
         dim = self.track_dim( LAYER, dim, num_of_dim)
         return out_channels, dim
 
@@ -1041,7 +838,6 @@ class NET(MAIN_OBJ):
         num_of_dim = self.check_dim(BLOCK)
         block_keys = list(BLOCK.keys())
         entity_type = [x for x,y in self.splitter(block_keys)]
-        print(out_channels)
 
         for i, entity in enumerate(block_keys):
             
@@ -1051,8 +847,7 @@ class NET(MAIN_OBJ):
                 out_channels, dim = self.track_dim_and_ch_block(BLOCK[ entity ], out_channels, dim)
             elif entity_type[i] == 'branch':
                 dim_list = [dim for x in range(len(list( BLOCK[ entity ] ))) ]
-                out_channels, dim = self.track_dim_and_ch_branch(BLOCK[layer], out_channels, dim_list)
-        print(out_channels)
+                out_channels, dim = self.track_dim_and_ch_branch(BLOCK[ entity ], out_channels, dim_list)
         return out_channels, dim
 
 
@@ -1065,7 +860,7 @@ class NET(MAIN_OBJ):
         final_dim_list = list()
         out_channels_list = list()
         for i, [TYPE,NUM] in enumerate(BB_keys):
-            BB = OrderedDict(BRANCH[TYPE + '-' + NUM])
+            BB = BRANCH[TYPE + '-' + NUM]
             dim = dim_list[i]
 
             if TYPE == 'block':
@@ -1079,7 +874,6 @@ class NET(MAIN_OBJ):
                 final_dim_list.append(dim)
                 out_channels_list.append(out_channels)
         if len(np.array(final_dim_list).shape) > 3:
-            print()
             Dim1_Same = all(x[1] ==final_dim_list[0][1] for x in final_dim_list)
             Dim2_Same = all(x[2] ==final_dim_list[0][2] for x in final_dim_list)
             if Dim1_Same == True and Dim2_Same == True:
@@ -1176,10 +970,14 @@ class NET(MAIN_OBJ):
             branch_or_block = input('You want to add block or branch \n Type 1 or 2')
 
             if branch_or_block == '1':
+                print(list(self.Blocks.keys()))
+
                 block_name  = input('Which block you want to add as a branch \n')
                 Dict_Branch['block-' + str(count_block)] = self.Blocks[block_name]
 
             elif branch_or_block == '2':
+                print(list(self.Branches_Created.keys()))
+
                 branch_name  = input('Which block you want to add as a branch \n')
                 Dict_Branch['branch-' + str(count_block)] = self.Branches_Created[branch_name]
 
@@ -1214,7 +1012,7 @@ class NET(MAIN_OBJ):
                     add_value = input('You want to add more?')
                     Add = self.Bool_Rework(add_value)
 
-                MAIN_DICT[ entity_key ] =  [LAYER_TYPE, PARAM]
+                MAIN_DICT[ entity_key ] =  [LAYER_TYPE, self.input_reworker( LAYER_TYPE, PARAM )]
             
             elif TYPE == '2':
                 print(list(self.Blocks.keys()))
@@ -1266,14 +1064,10 @@ class NET(MAIN_OBJ):
 
                 #IF THIS IS NOT LAST PART
                 if ENTITY != entity_list_str[-1] :
-                    if Flat == True:
-                        raise Exception('Flatten between entities, not allowed for this one, sorry :(')
 
                     #IF DIM IS 1
                     if self.check_dim( MAIN_DICT[ ENTITY ] ) == 1:
-                        print('CAN REACH TRACK OUT {}'.format(out_channels))
                         out_channels, _ = self.track_dim_and_ch_block( MAIN_DICT [ ENTITY ], out_channels, dim=10000 )
-                        print('AFTER DIM1 TRACK BLOCK {}'.format(out_channels))
                     #IF DIM IS 2
                     elif self.check_dim( MAIN_DICT[ ENTITY ] ) == 2:
                         out_channels, _ = self.track_dim_and_ch_block( MAIN_DICT [ ENTITY ], out_channels, dim=(10000,10000) )
@@ -1287,17 +1081,14 @@ class NET(MAIN_OBJ):
                 dim_list_2d = [dim_2d for x in range(len(list(MAIN_DICT [ ENTITY ].keys())))]
                 Flat = self.check_flatten_branch(MAIN_DICT [ ENTITY ])
                 #IF BLOCK IS NOT FLATTENED
-                if Flat == True:
-                    raise Exception('Flatten can only placed in the end of the block')
-                else:
-                    #IF THIS IS NOT LAST PART
-                    if ENTITY != entity_list_str[-1] :
-                        #IF DIM IS 1
-                        if self.check_dim( MAIN_DICT[ ENTITY ] ) == 1:
-                            out_channels, _ = self.track_dim_and_ch_branch( MAIN_DICT [ ENTITY ], out_channels, dim_list_1d )
-                        #IF DIM IS 2
-                        elif self.check_dim( MAIN_DICT[ ENTITY ] ) == 2:
-                            out_channels, _ = self.track_dim_and_ch_branch( MAIN_DICT [ ENTITY ], out_channels, dim_list_2d )
+                #IF THIS IS NOT LAST PART
+                if ENTITY != entity_list_str[-1] :
+                    #IF DIM IS 1
+                    if self.check_dim( MAIN_DICT[ ENTITY ] ) == 1:
+                        out_channels, _ = self.track_dim_and_ch_branch( MAIN_DICT [ ENTITY ], out_channels, dim_list_1d )
+                    #IF DIM IS 2
+                    elif self.check_dim( MAIN_DICT[ ENTITY ] ) == 2:
+                        out_channels, _ = self.track_dim_and_ch_branch( MAIN_DICT [ ENTITY ], out_channels, dim_list_2d )
    
         self.Blocks[NAME] = MAIN_DICT
 
@@ -1309,4 +1100,218 @@ class NET(MAIN_OBJ):
 
 
 
+#============================================================================ MODEL =========================================================================================
+#============================================================================ MODEL =========================================================================================
+#============================================================================ MODEL =========================================================================================
+
+
+class Model(nn.Module):
+    def __init__( self, SOURCE_OBJ1, SOURCE_OBJ2 ):
+      
+
+        super().__init__()
+        self.__dict__.update(SOURCE_OBJ1.__dict__)
+        self.__dict__.update(SOURCE_OBJ2.__dict__)
+        self.TRAIN_DL = SOURCE_OBJ2.TRAIN_DL
+        self.VAL_DL = SOURCE_OBJ2.VAL_DL
+        self.TEST_DL = SOURCE_OBJ2.TEST_DL
+        ind_branch = 0
+        ind_block = 0
+        self.epoch = 500
+        self.lrate = 0.001
+        self.Loss_FUNC = F.mse_loss
+        self.layers = nn.ModuleList()
+
+
+        print('\n feature size: {} \n ALL BLOCKS: {} \n  '.format(self.feature_size, self.ALL_BLOCKS))
+        for i in range(self.num_of_branches + self.num_of_blocks):
+
+            if self.order[i] == 'branch':
+                ind_branch = ind_branch + 1
+                self.layers.append( Branch( self.ALL_BRANCHES[ str(ind_branch )]))
+
+            elif self.order[i] == 'block':
+                ind_block = ind_block + 1
+                self.layers.append( Block( self.ALL_BLOCKS[ str(ind_block )]))
+
+
+    def forward(self,x):
+        for LAYER in self.layers:
+            x = LAYER(x)
+        return x
+
+    def loss_batch(self, TR_INP, TR_OUT, opt=None):
+        model_out = self(TR_INP)
+        loss = self.Loss_FUNC(model_out, TR_OUT)
+        if opt is not None:
+            loss.backward(retain_graph=True)
+            opt.step()
+            opt.zero_grad()
+        return loss.item(), len(TR_INP)
+
+
+    def fit(self):
+        self.hist = list()
+        self.hist_valid = list()
+
+        for epoch in range(self.epoch):
+            batch_loss = 0
+            count = 0 
+            self.train()            
+            for TR_INP, TR_OUT in self.TRAIN_DL:
+                losses, nums = self.loss_batch(TR_INP, TR_OUT, opt = self.optimizer)
+                batch_loss = batch_loss + losses
+                count = count + 1
+            train_loss = batch_loss / count
+            self.hist.append(train_loss)
+            
+
+            self.eval()
+            with torch.no_grad():
+                losses, nums = zip(
+                    *[self.loss_batch(TR_INP, TR_OUT) for TR_INP, TR_OUT in self.VAL_DL]
+                )
+            val_loss = np.sum(np.multiply(losses, nums)) / np.sum(nums)
+            print('Train Loss:  {}  and Validation Loss:  {}'.format(train_loss, val_loss))
+
+            self.hist_valid.append(val_loss)
+
+            print('{}:   {}'.format(epoch,val_loss))
+        
+
+
+
+
+class LST(nn.Module):
+    def __init(self,param):
+        super().__init__()
+        
+        BSIZEOLSUN = param[-1]
+        self.init_hidden_states(param)
+
+    def init_hidden_states(self,param):
+        if param[5] == 2:
+            NUM_OF_DIRECTIONS = 2
+        else:
+            NUM_OF_DIRECTIONS = 1
+        
+        self.hidden = (torch.randn(param[2] * NUM_OF_DIRECTIONS, self.batch_size, param[1]),
+                       torch.randn(param[2] * NUM_OF_DIRECTIONS, self.batch_size, param[1]))      
+
+    def forward(x):
+        batchsize , features , windowlength = x.shape
+        x = x.reshape(batchsize, windowlength, features)
+        x, self.hidden = layer(x,self.hidden)
+        batchsize, windowlength, features = x.shape
+        x = x.reshape(batchsize, features, windowlength)
+        return x
+
+    def splitter(self,key_list, sep = '-'):
+        key_list = copy.deepcopy(key_list)
+        new_key_list = list()
+        num_of_keys = len(key_list)
+        for key in range(num_of_keys):
+            new_key_list.append(key_list[key].split(sep))
+        return new_key_list
+
+
+class Block(nn.Module):
+    def __init__(self,BLOCK):
+        super().__init__()
+        ENTITY_LIST = list(BLOCK.keys())
+
+        self.layers = nn.ModuleList()
+        KEY_LIST = self.splitter(ENTITY_LIST) 
+
+        for i, [ ENTITY, num ] in enumerate(KEY_LIST):
+            ENTITY_KEY =  ENTITY + '-' + num
+            
+            if ENTITY == 'block':
+                self.layers.append( Block(BLOCK[ ENTITY_KEY ]))
+            elif ENTITY == 'branch':
+                self.layers.append( Branch(BLOCK[ ENTITY_KEY ]))
+            elif ENTITY == 'layer':
+                TYPE = BLOCK[ ENTITY_KEY ][0]
+                ARGS = BLOCK[ ENTITY_KEY ][1]
+                self.layers = self.layer_add(self.layers,TYPE,*ARGS)
+
+    def forward(self,x):
+        for LAYER in self.layers:
+            x = LAYER(x)
+        return x
+
+                    
+    def layer_add(self,submodule,key,*args):
+        submodule.append(self.layer_set(key,*args))
+        return submodule
+
+
+    def layer_set(self,key,*args):
+        ## push args into key layer type, return it
+        ## push args into key layer type, return it
+        if key == 'conv1d':
+            return nn.Conv1d(*args)
+        elif key == 'LSTM':
+            return LST(*args[:-1])
+        elif key == 'Linear':
+            return nn.Linear(*args)
+        elif key == 'Dropout':
+            return nn.Dropout(*args)
+        elif key == 'BatchNorm1d':
+            return nn.BatchNorm1d(*args)
+        elif key == 'Flatten':
+            return nn.Flatten()
+        elif key == 'ReLU':
+            return nn.ReLU()
+        elif key == 'MaxPool1d':
+            return nn.MaxPool1d(*args)
+
+    def splitter(self,key_list, sep = '-'):
+        key_list = copy.deepcopy(key_list)
+        new_key_list = list()
+        num_of_keys = len(key_list)
+        for key in range(num_of_keys):
+            new_key_list.append(key_list[key].split(sep))
+        return new_key_list
+
+
+class Branch(nn.Module):
+    def __init__(self,BRANCH):
+        super().__init__()
+        the_list = list(BRANCH.keys())
+        self.BB = nn.ModuleDict()
+        KEY_LIST = self.splitter(the_list) 
+        self.forward_keys = list()
+        for [ TYPE, NUM ] in KEY_LIST:
+            the_key = TYPE + '-' + NUM
+
+
+            if TYPE == 'block':
+                self.BB[ the_key ] = Block(BRANCH[ the_key ])
+                self.forward_keys.append( the_key )
+            elif TYPE == 'branch':
+                self.BB[ the_key ] = Branch(BRANCH[ the_key ])
+                self.forward_keys.append( the_key )
+            print('FORWARD KEYS ARE: {}'.format(self.forward_keys))
+    def forward(self,x):
+        for i,  TYPE in enumerate(self.forward_keys):
+            
+            if i == 0:
+                branch_concat_out = torch.Tensor( self.BB[ TYPE ](x) )
+            else:
+                branch_concat_out = torch.cat( [ branch_concat_out, self.BB[ TYPE ](x) ], dim = 1)
+
+        return branch_concat_out
+
+    def splitter(self, KEYS, sep = '-'):
+        key_list = copy.deepcopy(KEYS)
+        num_of_keys = len(key_list)
+        new_key_list = list()
+        for key in range(num_of_keys):
+            new_key_list.append(key_list[key].split(sep))
+        return new_key_list
+
+#============================================================================ MODEL =========================================================================================
+#============================================================================ MODEL =========================================================================================
+#============================================================================ MODEL =========================================================================================
 
