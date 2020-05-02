@@ -9,8 +9,8 @@ from torch.utils.data import DataLoader
 from torch.utils.data import TensorDataset
 import torch.nn.functional as F
 from itertools import compress 
-
-
+import os
+import pickle
 class MAIN_OBJ():
     def __init__(self):
         super().__init__()
@@ -544,20 +544,20 @@ class NET(MAIN_OBJ):
 
         if len(FTR_SIZE) > 1: branched_start = True 
         try:
-            os.mkdir('NET')
+            os.mkdir('/NET')
         except:
             pass
 
         try:
-            os.mkdir('NET/BLOCKS-N-BRANCHES')
+            os.mkdir('/NET/BLOCKS-N-BRANCHES')
         except:
             pass
         try:
-            os.mkdir('NET/NETWORKS')
+            os.mkdir('/NET/NETWORKS')
         except:
             pass
         try:
-            os.mkdir('NET/net_in_use')
+            os.mkdir('/NET/net_in_use')
         except:
             pass
 
@@ -705,11 +705,11 @@ class NET(MAIN_OBJ):
         self.Branches_Created[NAME] = Dict_Branch
 
     def save_block_or_branch(self, entity, save_name ):
-        with open('BLOCKS-AND-BRANCHES/' + save_name + '.p', 'wb') as fp:
+        with open('/NET/BLOCKS-N-BRANCHES/' + save_name + '.p', 'wb') as fp:
             pickle.dump(entity, fp, protocol=pickle.HIGHEST_PROTOCOL)
 
     def load_block_or_branch(self, file_name):
-        with open('BLOCKS-AND-BRANCHES/' + file_name + '.p', 'rb') as fp:
+        with open('/NET/BLOCKS-N-BRANCHES/' + file_name + '.p', 'rb') as fp:
             data = pickle.load(fp)
 
 
@@ -993,20 +993,20 @@ class NET(MAIN_OBJ):
         self.First = False
 
     def Save_Network(self, save_name):
-        with open('NET/' + save_name + '/ALL_BRANCHES.pickle', 'wb') as handle:
+        with open('/NET/' + save_name + '/ALL_BRANCHES.pickle', 'wb') as handle:
             pickle.dump(self.ALL_BRANCHES, handle, protocol=pickle.HIGHEST_PROTOCOL)
-        with open('NET/' + save_name + '/ALL_BLOCKS.pickle', 'wb') as handle:
+        with open('/NET/' + save_name + '/ALL_BLOCKS.pickle', 'wb') as handle:
             pickle.dump(self.ALL_BLOCKS, handle, protocol=pickle.HIGHEST_PROTOCOL)
-        with open('NET/' + save_name + '/order.pickle', 'wb') as handle:
+        with open('/NET/' + save_name + '/order.pickle', 'wb') as handle:
             pickle.dump(self.order, handle, protocol=pickle.HIGHEST_PROTOCOL)
 
 
     def set_current_network_as_in_use( self ):
-        with open('NET/net_in_use/ALL_BRANCHES.pickle', 'wb') as handle:
+        with open('/NET/net_in_use/ALL_BRANCHES.pickle', 'wb') as handle:
             pickle.dump(self.ALL_BRANCHES, handle, protocol=pickle.HIGHEST_PROTOCOL)
-        with open('NET/net_in_use/ALL_BLOCKS.pickle', 'wb') as handle:
+        with open('/NET/net_in_use/ALL_BLOCKS.pickle', 'wb') as handle:
             pickle.dump(self.ALL_BLOCKS, handle, protocol=pickle.HIGHEST_PROTOCOL)
-        with open('NET/net_in_use/order.pickle', 'wb') as handle:
+        with open('/NET/net_in_use/order.pickle', 'wb') as handle:
             pickle.dump(self.order, handle, protocol=pickle.HIGHEST_PROTOCOL)
 
 
