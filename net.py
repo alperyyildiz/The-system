@@ -21,7 +21,7 @@ class MAIN_OBJ():
         #User input will be processed by these functions and parameters
 
         self.input_types = {'conv1d': [int,int,int,int,int,int,int,self.Bool_Rework,str],
-                            'conv2d': [int,int,int,int,int,int,int,self.Bool_Rework,str],
+                            'conv2d': [int,int,self.Tuple_Rework,self.Tuple_Rework,self.Tuple_Rework,self.Tuple_Rework,int,self.Bool_Rework,str],
                             'conv1dTranspose': [int,int,int,int,int,int,int,self.Bool_Rework,int,str],
                             'conv2dTranspose': [int,int,int,int,int,int,int,self.Bool_Rework,int,str],
                             'LSTM': [int,int,int,self.Bool_Rework,self.Bool_Rework,int,self.Bool_Rework,int],
@@ -58,9 +58,9 @@ class MAIN_OBJ():
                            'conv2d': {'in_channels':None,
                                       'out_channels':None,
                                       'kernel_size':None,
-                                      'stride':1,
-                                      'padding':0, 
-                                      'dilation':1, 
+                                      'stride':'1-1',
+                                      'padding':'0-0', 
+                                      'dilation':'1-1', 
                                       'groups':1, 
                                       'bias':True, 
                                       'padding_mode':'zeros'},
@@ -294,7 +294,10 @@ class MAIN_OBJ():
         else:
             print('WE HAVE A PROBLEM IN BOOL_REWORK')
 
-
+    def Tuple_Rework(self, tup):
+        tuple_elems = tup.split('-')
+        new_tuple = [ int(tuple_elems[0]) , int(tuple_elems[1])]
+        return new_tuple
 #============================================================================INPUT REWORKS=========================================================================================
 #============================================================================TRACK SEQ AND CH=========================================================================================
 
@@ -313,9 +316,12 @@ class MAIN_OBJ():
                 dim =  1
         
         elif num_of_dim == 2:
+                
             if layer[0] == 'conv2d':
-                dim[0] = int(np.ceil((dim[0] + 2*params[4][0] - params[5][0]*(params[2][0]-1)-1)/params[3][0] + 1))
-                dim[1] = int(np.ceil((dim[1] + 2*params[4][1] - params[5][1]*(params[2][1]-1)-1)/params[3][1] + 1))
+                print('\n TRACK DIM DIM DIM DIM DIM ------> {}'.format( dim ) )
+                print('\n PARAMS ARE ----------> {}'.format(params))
+                dim[0] = int(np.ceil((dim[0] + 2*params[3][0] - params[5][0]*(params[2][0]-1)-1)/params[3][0] + 1))
+                dim[1] = int(np.ceil((dim[1] + 2*params[3][1] - params[5][1]*(params[2][1]-1)-1)/params[3][1] + 1))
             elif layer[0] == 'MaxPool2d':
                 dim[0] = int(np.ceil((dim[0] + 2*params[2][0] - params[3][0]*(params[0][0]-1)-1)/params[3][0] + 1))
                 dim[1] = int(np.ceil((dim[1] + 2*params[2][1] - params[3][1]*(params[0][1]-1)-1)/params[3][1] + 1))
@@ -464,11 +470,12 @@ class MAIN_OBJ():
             raise Exception('Some are Flat, Some are Not')
             
   
-    def track_dim_and_ch(self,Layer,out_channels,dim, num_of_dim ):
+    def track_dim_and_ch( self, Layer, out_channels, DIM, num_of_dim ):
         LAYER = copy.deepcopy( Layer )
-        out_channels = self.track_out_channels( LAYER, out_channels, dim, num_of_dim)
-        dim = self.track_dim( LAYER, dim, num_of_dim)
-        return out_channels, dim
+        out_channels = self.track_out_channels( LAYER, out_channels, DIM, num_of_dim)
+        print('\n track_dim_and_ch DIMDIMDIMDIDMIMD \n -----> {}'.format(DIM))
+        DIM = self.track_dim( LAYER, DIM, num_of_dim)
+        return out_channels, DIM
 
 
 
@@ -582,6 +589,7 @@ class NET(MAIN_OBJ):
         for i, entity in enumerate(block_keys):
             
             if entity_type[i] == 'layer':
+                print('\n DIMDIMDIM in track_dim_and_ch_block ----> {}'.format(dim))
                 out_channels, dim = self.track_dim_and_ch(BLOCK[ entity ], out_channels, dim, num_of_dim)
             elif entity_type[i] == 'block':
                 out_channels, dim = self.track_dim_and_ch_block(BLOCK[ entity ], out_channels, dim)
@@ -898,22 +906,25 @@ class NET(MAIN_OBJ):
         #Get the list of block layers to be added
         BLOCK_ENTITIES = list(BLOCK.keys())
         ENTITY_TYPES = self.splitter(BLOCK_ENTITIES)
-        
-        if ENTITY_TYPES[0][0] == 'block':
+        if ENTITY_TYPES[0][0] == 'layer':
             if self.First == True:
                 self.out_channels = self.feature_size
-                BLOCK[ BLOCK_ENTITIES[0] ] = self.push_ch_to_block( BLOCK[ BLOCK_ENTITIES[0] ], self.out_channels )
-            else:
-                BLOCK[ BLOCK_ENTITIES[0] ] = self.push_ch_to_block( BLOCK[ BLOCK_ENTITIES[0] ], self.out_channels )
+
+            BLOCK[ BLOCK_ENTITIES[0] ] = self.push_ch_to_layer( BLOCK[ BLOCK_ENTITIES[0] ], self.out_channels )
+
+        elif ENTITY_TYPES[0][0] == 'block':
+            if self.First == True:
+                self.out_channels = self.feature_size
+            BLOCK[ BLOCK_ENTITIES[0] ] = self.push_ch_to_block( BLOCK[ BLOCK_ENTITIES[0] ], self.out_channels )
 
         elif ENTITY_TYPES[0][0] == 'branch':
             if self.First == True:
                 self.out_channels = [250,200]
-                BLOCK[ BLOCK_ENTITIES[0] ] = self.push_ch_to_branch( BLOCK[ BLOCK_ENTITIES[0] ], self.out_channels )
             else:
                 self.DIM = [ self.DIM for _ in range( len( BLOCK[ BLOCK_ENTITIES[0] ].keys() ) ) ]
                 self.out_channels = [ self.out_channels for _ in range( len( BLOCK[ BLOCK_ENTITIES[0] ].keys() ) ) ]
-                BLOCK[ BLOCK_ENTITIES[0] ] = self.push_ch_to_branch( BLOCK[ BLOCK_ENTITIES[0] ], self.out_channels )
+
+            BLOCK[ BLOCK_ENTITIES[0] ] = self.push_ch_to_branch( BLOCK[ BLOCK_ENTITIES[0] ], self.out_channels )
                 
             self.out_channels = self.feature_size
 
@@ -921,6 +932,7 @@ class NET(MAIN_OBJ):
 
         
         #track out channels and seqeunce length  
+        print('\n SELF DIM append_block ----------> {} \n'.format(self.DIM))
         self.out_channels, self.DIM = self.track_dim_and_ch_block( BLOCK, self.out_channels, self.DIM)
 
         #Append block layers to network
