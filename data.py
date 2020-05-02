@@ -258,7 +258,7 @@ class Data():
         #SPLIT DATA WITH SPECIFIED PERCENTAGES
         percentages  = {'train': 0.7, 'val': 0.2, 'test': 0.1 }
         TRAIN, VAL, TEST = self.train_val_test_split( DATA, percentages, output_size = out_size , window_len = max_window_len )
-        print('AFTER SPLIT {}'.format(np.array(TRAIN).shape))
+
         #SAVE DATES 
         #SAVE DATES 
         date_TRAIN, date_VAL, date_TEST = TRAIN[date_col_name], VAL[date_col_name], TEST[date_col_name]
@@ -338,12 +338,9 @@ class Data():
 
                 dim = int(dim)
                 if dim == 1:
-                    print('IN DIM 1 IN DIM 1 IN DIM 1 IN DIM 1 IN DIM 1 IN DIM 1 IN DIM 1')
                     ALL_DATA_LIST.append( DATA_LIST )
 
                 elif dim == 2:
-
-                    print('IN DIM 2 IN DIM 2 IN DIM 2 IN DIM 2 IN DIM 2 IN DIM 2 IN DIM 2')
 
                     DATA_LIST = self.Recurrence_Plot_DATA_LIST( DATA_LIST )
                     ALL_DATA_LIST.append( DATA_LIST )
@@ -356,21 +353,17 @@ class Data():
             VAL_OUT_LIST = list()
             TEST_OUT_LIST = list()
 
-            print('ALL DATA LIST SHAPE {}'.format(  np.array( ALL_DATA_LIST ).shape )  )
 
             for BRANCH in range( np.array( ALL_DATA_LIST ).shape[0] ):
                 [ TEMP_TRAIN, TEMP_TRAIN_OUT, TEMP_VAL, TEMP_VAL_OUT, TEMP_TEST, TEMP_TEST_OUT ] = ALL_DATA_LIST[ BRANCH ]
 
-                print('BRANCH BRANCH BRANCHBRANCHv BRANCH ************ {}'.format( BRANCH ) )
                 TRAIN_LIST.append( TEMP_TRAIN )
                 VAL_LIST.append( TEMP_VAL )
                 TEST_LIST.append( TEMP_TEST )
 
-                print(' TEMP_TRAIN_OUT TEMP_TRAIN_OUT TEMP_TRAIN_OUT --------- {}'.format( TEMP_TRAIN_OUT ))
                 TRAIN_OUT_LIST.append( TEMP_TRAIN_OUT )
                 VAL_OUT_LIST.append( TEMP_VAL_OUT )
                 TEST_OUT_LIST.append( TEMP_TEST_OUT )
-                print('TEMP TRAIN OUTT ------------->>>>>> {}'.format( TEMP_TRAIN_OUT.shape ) )
 
             LIST_OF_LISTS = [ TRAIN_LIST, TRAIN_OUT_LIST, VAL_LIST, VAL_OUT_LIST, TEST_LIST, TEST_OUT_LIST ]
             
@@ -381,25 +374,6 @@ class Data():
                                 feature_size = FS,
                                 window_len = window_len,
                                 dtype = dtype )
-
-
-    def make_batch_multiple(self, LIST_OF_LISTS, batch_size ):
-        [ TRAIN_LIST, TRAIN_OUT_LIST, VAL_LIST, VAL_OUT_LIST, TEST_LIST, TEST_OUT_LIST ] = LIST_OF_LISTS
-
-        train_all_same = all(x == TRAIN_OUT_LIST[0] for x in TRAIN_OUT_LIST)
-        val_all_same = all(x == VAL_OUT_LIST[0] for x in VAL_OUT_LIST)
-        test_all_same = all(x == TEST_OUT_LIST[0] for x in TEST_OUT_LIST)
-
-        if train_all_same == False or val_all_same == False or test_all_same == False:
-            raise Exception('DATA shifted???????????????????????????')
-
-        
-        TRAIN_DS = TensorDataset( *TRAIN_LIST, TRAIN_OUT_LIST[ 0 ] )
-        VAL_DS = TensorDataset( *VAL_LIST, VAL_OUT_LIST[ 0 ] )
-        TEST_DS = TensorDataset( *TEST_LIST, TEST_OUT_LIST[ 0 ] )
-
-        TRAIN_DL, VAL_DL, TEST_DL = DataLoader( TRAIN_DS, batch_size ), DataLoader( VAL_DS, batch_size ), DataLoader( TEST_DS, batch_size )
-        return [TRAIN_DL, VAL_DL, TEST_DL]
 
 
 
@@ -496,4 +470,54 @@ class Data():
             file.write('INPUT_DIMS=' + window_len_string)
 
 
+
+
+    def make_batch_multiple(self, LIST_OF_LISTS, batch_size ):
+        [ TRAIN_LIST, TRAIN_OUT_LIST, VAL_LIST, VAL_OUT_LIST, TEST_LIST, TEST_OUT_LIST ] = LIST_OF_LISTS
+
+        SAME = True
+        for x in TRAIN_OUT_LIST:
+            comparison = x == TRAIN_OUT_LIST[ 0 ]
+            equal = comparison.all()
+            if equal == False:
+                SAME = False
+        train_all_same = SAME        
+        
+        SAME = True
+        for x in VAL_OUT_LIST:
+            comparison = x == VAL_OUT_LIST[ 0 ]
+            equal = comparison.all()
+            if equal == False:
+                SAME = False
+        val_all_same = SAME        
+
+
+        SAME = True
+        for x in VAL_OUT_LIST:
+            comparison = x == VAL_OUT_LIST[ 0 ]
+            equal = comparison.all()
+            if equal == False:
+                SAME = False
+        test_all_same = SAME        
+
+
+
+        if train_all_same == False or val_all_same == False or test_all_same == False:
+            raise Exception('DATA shifted???????????????????????????')
+
+        TRAIN_LIST = list( map( torch.Tensor, TRAIN_LIST ) )
+        TRAIN_OUT_LIST = list( map( torch.Tensor, TRAIN_OUT_LIST ) )
+
+        VAL_LIST = list( map( torch.Tensor, VAL_LIST ) )
+        VAL_OUT_LIST = list( map( torch.Tensor, VAL_OUT_LIST ) )
+
+        TEST_LIST = list( map( torch.Tensor, TEST_LIST ) )
+        TEST_OUT_LIST = list( map( torch.Tensor, TEST_OUT_LIST ) )
+
+        TRAIN_DS = TensorDataset( *TRAIN_LIST, TRAIN_OUT_LIST[ 0 ] )
+        VAL_DS = TensorDataset( *VAL_LIST, VAL_OUT_LIST[ 0 ] )
+        TEST_DS = TensorDataset( *TEST_LIST, TEST_OUT_LIST[ 0 ] )
+
+        TRAIN_DL, VAL_DL, TEST_DL = DataLoader( TRAIN_DS, batch_size ), DataLoader( VAL_DS, batch_size ), DataLoader( TEST_DS, batch_size )
+        return [TRAIN_DL, VAL_DL, TEST_DL]
 
