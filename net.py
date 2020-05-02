@@ -298,7 +298,7 @@ class MAIN_OBJ():
 #============================================================================INPUT REWORKS=========================================================================================
 #============================================================================TRACK SEQ AND CH=========================================================================================
 
-    def track_dim(self,layer,dim, num_of_dim):
+    def track_dim( self, layer, dim, num_of_dim ):
         #Method to track sequence length of forward input
         #Used to calculate input channels for the layer after flatten
         #Also will be used for debugging in the future
@@ -368,144 +368,37 @@ class MAIN_OBJ():
 
         return TYPE, input_params
 
+
+    def split_data_info(self,data_info):
+        DATA_ROOT_NAME = data_info[ 0 ]
         
-class NET(MAIN_OBJ):
-    def __init__(self):
-        super().__init__()
+        FTR_size_info = data_info[ 1 ].split('=')
+        DIM_info = data_info[ 2 ].split('=')
 
-        branched_start = input('1 if Network starts with branch, anything else otherwise')
-        if branched_start == '1': branched_start = True 
-        try:
-            os.mkdir('BLOCKS-AND-BRANCHES')
-        except:
-            pass
-        if branched_start == True:
-            feature_size_list = input('Please provide feature size for each list \n Separe them with "-" ')
-            feature_size_list = feature_size_list.split('-')
-            self.feature_size_list = list(map(int, feature_size_list))
+        if len( FTR_size_info[ 1 ].split('-')) > 1:
+            FTR_size = FTR_size_info[ 1 ].split('-')
+            DIM = DIM_info[1].split('-')
+            
+            for DIMENSION in DIM:
+                if len( DIMENSION.split( 'x' )) > 1:
+                    TEMP_DIMS = DIMENSION.split( 'x' )
+                    DIMENSION = (TEMP_DIMS[ 0 ], TEMP_DIMS[ 1 ] )
+            
 
-            wlen_list = input('Please provide window length for each list \n Separe them with "-" ')
-            wlen_list = wlen_list.split('-')
-            self.wlen_list = list(map(int, wlen_list))
+
+
+            FTR_size = list( map( int, FTR_size ) ) 
+            DIM = list( map( int, DIM ) ) 
+
+        
+            return DATA_ROOT_NAME[ : -2 ], FTR_size, DIM
 
         else:
-            self.feature_size = int(input('Provide feature size'))
-            self.wlen = int(input('Provide window length'))
-
-        self.Blocks = OrderedDict()
-        self.Branches_Created = OrderedDict()
-
-        self.network = OrderedDict()
-
-        self.ALL_BLOCKS = OrderedDict()
-        self.ALL_BRANCHES = OrderedDict()
-        
-        self.num_of_branches = 0
-        self.num_of_blocks  = 0
-        self.First = True
-
-        self.order = list()
+            FTR_size = [ int( FTR_size_info[ 1 ])]
+            DIM = [ int( DIM_info[ 1 ] )]
+            return DATA_ROOT_NAME[ : -2 ], FTR_size, DIM
 
 
-
-    def Append_Block_to_Network_v2(self, Block):
-        #Append the block to the Network
-
-        #Copy network to eliminate overwriting
-        BLOCK = copy.deepcopy(Block)
-        
-        #Get the list of block layers to be added
-        block_layers = list(BLOCK.keys())
-        
-        #if this is the first part to be added
-        #set count to 0 and in_channels to feature_size
-        if self.First == True:
-            self.Branch_First = False
-            self.out_channels = self.feature_size
-
-            count = 0
-
-        BLOCK = self.push_ch_to_block(BLOCK,self.out_channels)
-        
-        #track out channels and seqeunce length  
-        self.out_channels, self.wlen = self.track_dim_and_ch_block(BLOCK,self.out_channels,self.wlen)
-
-        #Append block layers to network
-        self.num_of_blocks = self.num_of_blocks + 1 
-        self.ALL_BLOCKS[str(self.num_of_blocks )] = BLOCK
-        self.order.append('block')
-        self.First = False
-
-    def check_dim_branch(self, Branch):
-        BRANCH = copy.deepcopy(Branch)
-
-        entity_keys = list(BRANCH.keys())
-        entity_types = self.splitter(entity_keys)
-        dim_list = list()
-        for i, ENTITY in enumerate(entity_keys):
-            if entity_types[ i ][0] == 'block':
-                dim = self.check_dim( BRANCH[ ENTITY ] )
-            elif entity_types[ i ][0] == 'branch':
-                dim = self.check_dim_branch(BRANCH[ ENTITY ])
-
-            dim_list.append(dim)
-
-        ALL_SAME = all(x == dim_list[0] for x in dim_list)
-        
-        if ALL_SAME == False:
-            raise Exception('Dimension Error will occur')
-        elif ALL_SAME == True:
-            return dim_list[0]
-
-
-
-    def check_dim(self,Block):
-        BLOCK = copy.deepcopy(Block)
-        entity_keys = list(BLOCK.keys())
-        entity_types = self.splitter(entity_keys)
-
-        for i, ENTITY in enumerate(entity_keys):
-            if entity_types[ i ][0] == 'layer':
-                if BLOCK[ ENTITY ][0] in self.Layers_1d:
-                    num_of_dim = 1
-                    return num_of_dim
-                elif BLOCK[ ENTITY ][0] in self.Layers_2d:
-                    num_of_dim = 2
-
-                    return num_of_dim 
-
-            elif entity_types[ i ][0] == 'block':
-                return self.check_dim(BLOCK[ ENTITY ])
-
-            elif entity_types[ i ][0] == 'branch':
-                return self.check_dim_branch(BLOCK[ ENTITY ])
-
-    def push_ch_to_block(self,BLOCK,out_channels):
-
-        BLOCK = copy.deepcopy(BLOCK)
-        entity_keys = list(BLOCK.keys())
-        entity_types = self.splitter(entity_keys)
-        if entity_types[0][0] == 'layer':
-            BLOCK['layer-1'] = self.push_ch_to_layer(BLOCK['layer-1'], out_channels)
-        elif entity_types[0][0] == 'block':
-            BLOCK['block-1'] = self.push_ch_to_block( BLOCK[ 'block-1' ], out_channels )
-        elif entity_types[0][0] == 'branch':
-            BLOCK['branch-1'] = self.push_ch_to_branch( BLOCK[ 'branch-1' ], out_channels )
-
-        return BLOCK
-
-
-    def push_ch_to_branch(self,BRANCH,out_channels):
-        BRANCH = copy.deepcopy(BRANCH)
-        entity_keys = list(BRANCH.keys())
-        entity_types = self.splitter(entity_keys)
-        
-        for i, ENTITY_KEY in enumerate(entity_keys): 
-            if entity_types[i][0]  == 'block':
-                BRANCH[ ENTITY_KEY ] = self.push_ch_to_block( BRANCH[ ENTITY_KEY ], out_channels )
-            elif entity_types[i][0] == 'branch':
-                BRANCH[ ENTITY_KEY ] = self.push_ch_to_branch( BRANCH[ ENTITY_KEY ], out_channels )
-        return BRANCH
 
 
     def push_ch_to_layer(self,Layer, out_channels):
@@ -600,8 +493,7 @@ class NET(MAIN_OBJ):
             raise Exception('Dimension Error will occur')
         elif ALL_SAME == True:
             return dim_list[0]
-
-
+            
 
     def check_dim(self,Block):
         BLOCK = copy.deepcopy(Block)
@@ -625,6 +517,62 @@ class NET(MAIN_OBJ):
                 return self.check_dim_branch(BLOCK[ ENTITY ])
 
 
+#============================================================================  NET NET NET NET NET ==============================================================================================
+
+#============================================================================  NET NET NET NET NET ==============================================================================================
+
+#============================================================================  NET NET NET NET NET ==============================================================================================
+
+#============================================================================  NET NET NET NET NET ==============================================================================================
+
+
+class NET(MAIN_OBJ):
+    def __init__(self):
+        super().__init__()
+
+        with open('DATA/in_use_info.txt', 'r') as ff:
+            data_info = ff.readlines()
+        
+        DATA_ROOT_NAME, FTR_SIZE, DIM = self.split_data_info( data_info )
+
+        if len(FTR_SIZE) > 1: branched_start = True 
+        try:
+            os.mkdir('DATA/NET')
+        except:
+            pass
+
+        try:
+            os.mkdir('DATA/NET/BLOCKS-N-BRANCHES')
+        except:
+            pass
+        try:
+            os.mkdir('DATA/NET/NETWORKS')
+        except:
+            pass
+
+
+
+
+        self.feature_size = FTR_SIZE
+        self.DIM = DIM
+
+        self.Blocks = OrderedDict()
+        self.Branches_Created = OrderedDict()
+
+        self.network = OrderedDict()
+
+        self.ALL_BLOCKS = OrderedDict()
+        self.ALL_BRANCHES = OrderedDict()
+        
+        self.num_of_branches = 0
+        self.num_of_blocks  = 0
+        self.First = True
+
+        self.order = list()
+
+
+
+
     def track_dim_and_ch_block(self, BLOCK, out_channels, dim):
         BLOCK = copy.deepcopy(BLOCK)
         num_of_dim = self.check_dim(BLOCK)
@@ -638,8 +586,14 @@ class NET(MAIN_OBJ):
             elif entity_type[i] == 'block':
                 out_channels, dim = self.track_dim_and_ch_block(BLOCK[ entity ], out_channels, dim)
             elif entity_type[i] == 'branch':
-                dim_list = [dim for x in range(len(list( BLOCK[ entity ] ))) ]
-                out_channels, dim = self.track_dim_and_ch_branch(BLOCK[ entity ], out_channels, dim_list)
+                
+                if i == 0:
+                    dim_list = self.DIM
+                else:
+                    dim_list = [dim for x in range(len(list( BLOCK[ entity ].keys() ) ) ) ]
+                
+                print('track_dim_and_ch_block DIM_LIST --------> {}'.format( dim_list ) )
+                out_channels, dim = self.track_dim_and_ch_branch( BLOCK[ entity ], out_channels, dim_list )
         return out_channels, dim
 
 
@@ -665,6 +619,8 @@ class NET(MAIN_OBJ):
                 out_channels, dim = self.track_dim_and_ch_branch(BB,out_channels,temp_branch_sll)
                 final_dim_list.append(dim)
                 out_channels_list.append(out_channels)
+
+
         if len(np.array(final_dim_list).shape) > 3:
             Dim1_Same = all(x[1] ==final_dim_list[0][1] for x in final_dim_list)
             Dim2_Same = all(x[2] ==final_dim_list[0][2] for x in final_dim_list)
@@ -683,6 +639,7 @@ class NET(MAIN_OBJ):
             elif All_Same == True:
                 dim = final_dim_list[0]
 
+            out_channels = 0
             for t, item in enumerate(out_channels_list):
                 out_channels = out_channels + item
 
@@ -701,50 +658,6 @@ class NET(MAIN_OBJ):
         for key in range(num_of_keys):
             new_key_list.append(key_list[key].split(sep))
         return new_key_list
-
-
-
-    def Append_Branch_to_Network_v2(self,BRANCH):
-
-        #Append the branch to the network
-        #Flatten all branches if needed 
-        BRANCH = copy.deepcopy(BRANCH)
-
-        #Get block list in the branch
-        
-        BB_keys = list(BRANCH.keys())
-        BB_keys = self.splitter(BB_keys)
-        
-        num_of_bb = len(list(BRANCH.keys()))
-
-        #Check if the branch in the beginning
-        #Provide sequence lengths if it is
-        #create init_dim_list 
-        if self.First is False:
-            dim = self.wlen
-            init_dim_list = [dim for x in range(num_of_bb)] 
-        else:
-            self.out_channels = self.feature_size
-            self.Branch_First = True
-            seq_list = input('Provide input sequences, separate them with comma(,)')
-            init_dim_list = seq_list.split(",")
-
-        #Check if all seq_lengths are the same
-        #Check if all blocks have flatten layer
-
-
-        #Set In_Channels
-        BRANCH = self.push_ch_to_branch(BRANCH,self.out_channels)
-
-        self.out_channels, self.wlen = self.track_dim_and_ch_branch(BRANCH, self.out_channels, init_dim_list)
-
-
-
-        self.num_of_branches = self.num_of_branches + 1 
-        self.ALL_BRANCHES[str(self.num_of_branches)] = BRANCH
-
-        self.order.append('branch') 
-        self.First = False
 
 
     def Create_Branch(self):
@@ -778,6 +691,38 @@ class NET(MAIN_OBJ):
 
 
         self.Branches_Created[NAME] = Dict_Branch
+
+    def save_block_or_branch(self, entity, save_name ):
+        with open('BLOCKS-AND-BRANCHES/' + save_name + '.p', 'wb') as fp:
+            pickle.dump(entity, fp, protocol=pickle.HIGHEST_PROTOCOL)
+
+    def load_block_or_branch(self, file_name):
+        with open('BLOCKS-AND-BRANCHES/' + file_name + '.p', 'rb') as fp:
+            data = pickle.load(fp)
+
+
+
+    def push_ch_to_block(self,BLOCK,out_channels):
+
+        BLOCK = copy.deepcopy(BLOCK)
+        entity_keys = list(BLOCK.keys())
+        entity_types = self.splitter(entity_keys)
+        if entity_types[0][0] == 'layer':
+            BLOCK['layer-1'] = self.push_ch_to_layer(BLOCK['layer-1'], out_channels)
+        elif entity_types[0][0] == 'block':
+            BLOCK['block-1'] = self.push_ch_to_block( BLOCK[ 'block-1' ], out_channels )
+        elif entity_types[0][0] == 'branch':
+            num_of_bb_in_new_branch = len( BLOCK[ entity_keys[ 0 ] ].keys() )
+            if self.First == True:
+                list_of_ch = self.feature_size
+            else:    
+                list_of_ch = [ out_channels for x in range( num_of_bb_in_new_branch ) ]
+
+            BLOCK['branch-1'] = self.push_ch_to_branch( BLOCK[ 'branch-1' ], list_of_ch )
+
+        return BLOCK
+
+
 
     def Create_Block(self):
         #Creates an ordered dictionary
@@ -839,24 +784,23 @@ class NET(MAIN_OBJ):
         count = count + 1
         entity_list_str = list(MAIN_DICT.keys())
         entity_type_str = [x for [x,y] in self.splitter(entity_list_str)]
-        for i, ENTITY in enumerate(entity_list_str):
+        
 
-            #IF ENTITY IS BLOCK
+        for i, ENTITY in enumerate(entity_list_str):
+            
+            
+            #IF ENTITY IS BLOCK 
+
             if entity_type_str[i] == 'layer':
-                MAIN_DICT[ ENTITY ] = self.push_ch_to_layer( MAIN_DICT[ ENTITY ]  , out_channels)
-                out_channels = self.track_out_channels( MAIN_DICT[ ENTITY ] , out_channels, 10000, 1)
+
+                if i == 0:
+                    out_channels = self.track_out_channels( MAIN_DICT[ ENTITY ] , out_channels, 10000, 1)
+                else:
+                    MAIN_DICT[ ENTITY ] = self.push_ch_to_layer( MAIN_DICT[ ENTITY ]  , out_channels)
+                    out_channels = self.track_out_channels( MAIN_DICT[ ENTITY ] , out_channels, 10000, 1)
 
             if entity_type_str[i] == 'block':
-
-                MAIN_DICT[ ENTITY ] = self.push_ch_to_block(MAIN_DICT [ ENTITY ] , out_channels )
-
-
-                #IF BLOCK IS NOT FLATTENED
-                #Flat = self.check_flatten_block(MAIN_DICT [ ENTITY ])
-
-                #IF THIS IS NOT LAST PART
-                if ENTITY != entity_list_str[-1] :
-
+                if i == 0:
                     #IF DIM IS 1
                     if self.check_dim( MAIN_DICT[ ENTITY ] ) == 1:
                         out_channels, _ = self.track_dim_and_ch_block( MAIN_DICT [ ENTITY ], out_channels, dim=10000 )
@@ -864,30 +808,171 @@ class NET(MAIN_OBJ):
                     elif self.check_dim( MAIN_DICT[ ENTITY ] ) == 2:
                         out_channels, _ = self.track_dim_and_ch_block( MAIN_DICT [ ENTITY ], out_channels, dim=(10000,10000) )
 
-            elif entity_type_str[i] == 'branch':
-                MAIN_DICT[ ENTITY ] = self.push_ch_to_branch( MAIN_DICT [ ENTITY ] , out_channels)
+                else:
+                    MAIN_DICT[ ENTITY ] = self.push_ch_to_block(MAIN_DICT [ ENTITY ] , out_channels )
 
-                dim = (10000)
-                dim_2d = (10000,10000)
-                dim_list_1d = [dim for x in range(len(list(MAIN_DICT [ ENTITY ].keys())))]
-                dim_list_2d = [dim_2d for x in range(len(list(MAIN_DICT [ ENTITY ].keys())))]
-                Flat = self.check_flatten_branch(MAIN_DICT [ ENTITY ])
-                #IF BLOCK IS NOT FLATTENED
-                #IF THIS IS NOT LAST PART
-                if ENTITY != entity_list_str[-1] :
-                    #IF DIM IS 1
-                    if self.check_dim( MAIN_DICT[ ENTITY ] ) == 1:
-                        out_channels, _ = self.track_dim_and_ch_branch( MAIN_DICT [ ENTITY ], out_channels, dim_list_1d )
-                    #IF DIM IS 2
-                    elif self.check_dim( MAIN_DICT[ ENTITY ] ) == 2:
-                        out_channels, _ = self.track_dim_and_ch_branch( MAIN_DICT [ ENTITY ], out_channels, dim_list_2d )
-   
+                    #IF THIS IS NOT LAST PART
+                    if ENTITY != entity_list_str[-1] :
+
+                        #IF DIM IS 1
+                        if self.check_dim( MAIN_DICT[ ENTITY ] ) == 1:
+                            #33333333
+                            out_channels, _ = self.track_dim_and_ch_block( MAIN_DICT [ ENTITY ], out_channels, dim=10000 )
+                        #IF DIM IS 2
+                        elif self.check_dim( MAIN_DICT[ ENTITY ] ) == 2:
+                            #444444444
+                            out_channels, _ = self.track_dim_and_ch_block( MAIN_DICT [ ENTITY ], out_channels, dim=(10000,10000) )
+
+            elif entity_type_str[i] == 'branch':
+                if i == 0:
+                    out_channels = [ None for _ in range(len(list(MAIN_DICT [ ENTITY ].keys()))) ]
+                    dim = (10000)
+                    dim_2d = (10000,10000)
+                    dim_list_1d = [self.DIM[0] for x in range(len(list(MAIN_DICT [ ENTITY ].keys())))]
+                    dim_list_2d = [self.DIM[0] for x in range(len(list(MAIN_DICT [ ENTITY ].keys())))]
+                    Flat = self.check_flatten_branch(MAIN_DICT [ ENTITY ])
+                    #IF THIS IS NOT LAST PART
+                    if ENTITY != entity_list_str[-1] :
+
+                        #IF DIM IS 1
+                        if self.check_dim( MAIN_DICT[ ENTITY ] ) == 1:
+                            out_channels, _ = self.track_dim_and_ch_branch( MAIN_DICT [ ENTITY ], out_channels, dim_list_1d )
+                        #IF DIM IS 2
+
+                        elif self.check_dim( MAIN_DICT[ ENTITY ] ) == 2:
+                            out_channels, _ = self.track_dim_and_ch_branch( MAIN_DICT [ ENTITY ], out_channels, dim_list_2d )
+      
+                else:
+                          
+                    MAIN_DICT[ ENTITY ] = self.push_ch_to_branch( MAIN_DICT [ ENTITY ] , out_channels)
+                    
+                    dim = (10000)
+                    dim_2d = (10000,10000)
+                    dim_list_1d = [dim for _ in range(len(list(MAIN_DICT [ ENTITY ].keys())))]
+
+
+
+                    out_channels = [out_channels for _ in range(len(list(MAIN_DICT [ ENTITY ].keys())))]
+                    Flat = self.check_flatten_branch(MAIN_DICT [ ENTITY ])
+                    #IF BLOCK IS NOT FLATTENED
+                    #IF THIS IS NOT LAST PART
+                    if ENTITY != entity_list_str[-1] :
+                        #IF DIM IS 1
+                        if self.check_dim( MAIN_DICT[ ENTITY ] ) == 1:
+                            out_channels, _ = self.track_dim_and_ch_branch( MAIN_DICT [ ENTITY ], out_channels, dim_list_1d )
+
+                        #IF DIM IS 2
+                        elif self.check_dim( MAIN_DICT[ ENTITY ] ) == 2:
+                            out_channels, _ = self.track_dim_and_ch_branch( MAIN_DICT [ ENTITY ], out_channels, dim_list_2d )
+      
         self.Blocks[NAME] = MAIN_DICT
 
-    def save_block_or_branch(self, entity, save_name ):
-        with open('BLOCKS-AND-BRANCHES/' + save_name + '.p', 'wb') as fp:
-            pickle.dump(entity, fp, protocol=pickle.HIGHEST_PROTOCOL)
 
-    def load_block_or_branch(self, file_name):
-        with open('BLOCKS-AND-BRANCHES/' + file_name + '.p', 'rb') as fp:
-            data = pickle.load(fp)
+
+    def push_ch_to_branch( self, BRANCH, out_channels ):
+        BRANCH = copy.deepcopy(BRANCH)
+        entity_keys = list(BRANCH.keys())
+        entity_types = self.splitter(entity_keys)
+        num_of_bb_in_new_branch = len( BRANCH.keys() )
+
+        list_of_ch = [ out_channels for _ in range( num_of_bb_in_new_branch ) ]
+
+        for i, ENTITY_KEY in enumerate(entity_keys): 
+
+            if entity_types[i][0]  == 'block':
+                BRANCH[ ENTITY_KEY ] = self.push_ch_to_block( BRANCH[ ENTITY_KEY ], list_of_ch[ i ] )
+
+            elif entity_types[i][0] == 'branch':
+                BRANCH[ ENTITY_KEY ] = self.push_ch_to_branch( BRANCH[ ENTITY_KEY ], list_of_ch[ i ]  )
+
+        return BRANCH
+
+
+
+    def Append_Block_to_Network_v2(self, Block):
+        #Append the block to the Network
+
+        #Copy network to eliminate overwriting
+        BLOCK = copy.deepcopy(Block)
+        
+        #Get the list of block layers to be added
+        BLOCK_ENTITIES = list(BLOCK.keys())
+        ENTITY_TYPES = self.splitter(BLOCK_ENTITIES)
+        
+        if ENTITY_TYPES[0][0] == 'block':
+            if self.First == True:
+                self.out_channels = self.feature_size
+                BLOCK[ BLOCK_ENTITIES[0] ] = self.push_ch_to_block( BLOCK[ BLOCK_ENTITIES[0] ], self.out_channels )
+            else:
+                BLOCK[ BLOCK_ENTITIES[0] ] = self.push_ch_to_block( BLOCK[ BLOCK_ENTITIES[0] ], self.out_channels )
+
+        elif ENTITY_TYPES[0][0] == 'branch':
+            if self.First == True:
+                self.out_channels = [250,200]
+                BLOCK[ BLOCK_ENTITIES[0] ] = self.push_ch_to_branch( BLOCK[ BLOCK_ENTITIES[0] ], self.out_channels )
+            else:
+                self.DIM = [ self.DIM for _ in range( len( BLOCK[ BLOCK_ENTITIES[0] ].keys() ) ) ]
+                self.out_channels = [ self.out_channels for _ in range( len( BLOCK[ BLOCK_ENTITIES[0] ].keys() ) ) ]
+                BLOCK[ BLOCK_ENTITIES[0] ] = self.push_ch_to_branch( BLOCK[ BLOCK_ENTITIES[0] ], self.out_channels )
+                
+            self.out_channels = self.feature_size
+
+            count = 0
+
+        
+        #track out channels and seqeunce length  
+        self.out_channels, self.DIM = self.track_dim_and_ch_block( BLOCK, self.out_channels, self.DIM)
+
+        #Append block layers to network
+        self.num_of_blocks = self.num_of_blocks + 1 
+        self.ALL_BLOCKS[str(self.num_of_blocks )] = BLOCK
+        self.order.append('block')
+        self.First = False
+
+
+
+
+    def Append_Branch_to_Network_v2(self,BRANCH):
+
+        #Append the branch to the network
+        #Flatten all branches if needed 
+        BRANCH = copy.deepcopy(BRANCH)
+
+        #Get block list in the branch
+        
+        BB_keys = list(BRANCH.keys())
+        BB_keys = self.splitter(BB_keys)
+        
+        num_of_bb = len(list(BRANCH.keys()))
+
+        #Check if the branch in the beginning
+        #Provide sequence lengths if it is
+        #create init_dim_list 
+        if self.First is False:
+            dim = self.DIM
+            init_dim_list = [dim for x in range(num_of_bb)]
+            init_out_channels_list = [ self.out_channels for x in range(num_of_bb)]
+        else:
+            self.out_channels = self.feature_size
+            init_out_channels_list = self.out_channels
+            self.out_channels = self.feature_size
+            self.Branch_First = True
+            init_dim_list = self.DIM
+
+        #Check if all seq_lengths are the same
+        #Check if all blocks have flatten layer
+
+
+        #Set In_Channels
+        BRANCH = self.push_ch_to_branch(BRANCH, init_out_channels_list)
+
+        self.out_channels, self.DIM = self.track_dim_and_ch_branch(BRANCH, self.out_channels, init_dim_list)
+
+
+
+        self.num_of_branches = self.num_of_branches + 1 
+        self.ALL_BRANCHES[str(self.num_of_branches)] = BRANCH
+
+        self.order.append('branch') 
+        self.First = False
+
