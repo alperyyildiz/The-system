@@ -235,3 +235,13 @@ class Branch(nn.Module):
         seq_len = int(seq_len_info[1])
 
         return data_root_name[:-2], feature_size, seq_len
+
+    
+
+    def Load_Network(self, loadname = 'net_in_use')
+        with open('NET/' + loadname + '/ALL_BRANCHES.pickle', 'wb') as handle:
+            self.ALL_BRANCHES = pickle.load( handle )
+        with open('NET/' + loadname + '/ALL_BLOCKS.pickle', 'wb') as handle:
+            self.ALL_BLOCKS = pickle.load( handle )
+        with open('NET/' + loadname + '/order.pickle', 'wb') as handle:
+            self.order = pickle.load( handle )
