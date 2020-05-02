@@ -316,7 +316,7 @@ class MAIN_OBJ():
                 dim =  1
         
         elif num_of_dim == 2:
-                
+
             if layer[0] == 'conv2d':
                 print('\n TRACK DIM DIM DIM DIM DIM ------> {}'.format( dim ) )
                 print('\n PARAMS ARE ----------> {}'.format(params))
@@ -544,16 +544,20 @@ class NET(MAIN_OBJ):
 
         if len(FTR_SIZE) > 1: branched_start = True 
         try:
-            os.mkdir('DATA/NET')
+            os.mkdir('NET')
         except:
             pass
 
         try:
-            os.mkdir('DATA/NET/BLOCKS-N-BRANCHES')
+            os.mkdir('NET/BLOCKS-N-BRANCHES')
         except:
             pass
         try:
-            os.mkdir('DATA/NET/NETWORKS')
+            os.mkdir('NET/NETWORKS')
+        except:
+            pass
+        try:
+            os.mkdir('NET/net_in_use')
         except:
             pass
 
@@ -987,4 +991,22 @@ class NET(MAIN_OBJ):
 
         self.order.append('branch') 
         self.First = False
+
+    def Save_Network(self, save_name):
+        with open('NET/' + save_name + '/ALL_BRANCHES.pickle', 'wb') as handle:
+            pickle.dump(self.ALL_BRANCHES, handle, protocol=pickle.HIGHEST_PROTOCOL)
+        with open('NET/' + save_name + '/ALL_BLOCKS.pickle', 'wb') as handle:
+            pickle.dump(self.ALL_BLOCKS, handle, protocol=pickle.HIGHEST_PROTOCOL)
+        with open('NET/' + save_name + '/order.pickle', 'wb') as handle:
+            pickle.dump(self.order, handle, protocol=pickle.HIGHEST_PROTOCOL)
+
+
+    def set_current_network_as_in_use( self ):
+        with open('NET/net_in_use/ALL_BRANCHES.pickle', 'wb') as handle:
+            pickle.dump(self.ALL_BRANCHES, handle, protocol=pickle.HIGHEST_PROTOCOL)
+        with open('NET/net_in_use/ALL_BLOCKS.pickle', 'wb') as handle:
+            pickle.dump(self.ALL_BLOCKS, handle, protocol=pickle.HIGHEST_PROTOCOL)
+        with open('NET/net_in_use/order.pickle', 'wb') as handle:
+            pickle.dump(self.order, handle, protocol=pickle.HIGHEST_PROTOCOL)
+
 
