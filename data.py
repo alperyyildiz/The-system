@@ -373,8 +373,8 @@ class Data():
                                 save_name,
                                 feature_size = FS,
                                 window_len = window_len,
-                                dtype = dtype )
-
+                                dim_list = dtype_new,
+                                dtype = dtype)
 
 
     def make_batch_single(self, DATA_LIST, batch_size):
@@ -422,7 +422,7 @@ class Data():
 
 
 
-    def Save_Processed_Data(self, NEW_DATA_LIST, save_name,  feature_size, window_len, dtype = 'Single'):
+    def Save_Processed_Data(self, NEW_DATA_LIST, save_name,  feature_size, window_len, dim_list, dtype = 'Single'):
         try:
             os.mkdir('DATA')
         except:
@@ -445,8 +445,23 @@ class Data():
 
         if dtype == 'Single':
             window_len_string = str(window_len)
+
         elif dtype == 'Multiple':
-            window_len_string = str( window_len[ 0 ] )  + 'x' + str( window_len[ 1 ] ) 
+            window_len_string = ''
+
+            for i, window in enumerate( window_len ):
+                if i == 0:
+                    start = ''
+                else:
+                    start = '-'
+                print(dim_list)
+                if dim_list[ i ] == '2':
+                    print('its 2d')
+                    window_len_string = window_len_string + start + str( window )  + 'x' + str( window ) 
+
+                elif dim_list[ i ] == '1':
+                    print('its 1d ')
+                    window_len_string = window_len_string + start + str( window ) 
 
         TRAIN_DL, VAL_DL, TEST_DL = NEW_DATA_LIST
         torch.save( TRAIN_DL, 'DATA/XU100-29022020/' + dtype + '/' +  save_name + '_TRAIN')
@@ -520,4 +535,3 @@ class Data():
 
         TRAIN_DL, VAL_DL, TEST_DL = DataLoader( TRAIN_DS, batch_size ), DataLoader( VAL_DS, batch_size ), DataLoader( TEST_DS, batch_size )
         return [TRAIN_DL, VAL_DL, TEST_DL]
-
