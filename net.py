@@ -11,6 +11,8 @@ import torch.nn.functional as F
 from itertools import compress 
 import os
 import pickle
+
+
 class MAIN_OBJ():
     def __init__(self):
         super().__init__()
@@ -901,8 +903,12 @@ class NET(MAIN_OBJ):
 
 
 
-    def Append_Block_to_Network_v2(self, Block):
+    def Append_Block_to_Network_v2(self):
         #Append the block to the Network
+        print('Which Block u need?')
+        print(*self.Blocks, sep = '\n')
+        block_name = input()
+        Block = self.Blocks[ block_name ]
 
         #Copy network to eliminate overwriting
         BLOCK = copy.deepcopy(Block)
@@ -948,10 +954,14 @@ class NET(MAIN_OBJ):
 
 
 
-    def Append_Branch_to_Network_v2(self,BRANCH):
+    def Append_Branch_to_Network_v2(self):
 
         #Append the branch to the network
         #Flatten all branches if needed 
+        print('Which Branch u need?')
+        print(*self.Branches_Created, sep = '\n')
+        branch_name = input()
+        BRANCH = self.Branches_Created[ branch_name ]
         BRANCH = copy.deepcopy(BRANCH)
 
         #Get block list in the branch
@@ -1010,3 +1020,35 @@ class NET(MAIN_OBJ):
             pickle.dump(self.order, handle, protocol=pickle.HIGHEST_PROTOCOL)
 
 
+def run():
+    NETWORK = NET()
+    ask = True
+    while ask:
+        print('\n 1 -- Create Block \n 2 -- Create Branch \n 3 -- Append Block to Network \n)
+        print(' 4 -- Append Branch to Network \n 5 -- See Created Blocks \n 6 -- See Created Branches \n ')
+        print('7 -- See All Blocks in the Network \n 8 -- See All Branches in the Network \n 9 -- See the order of network flow \n')
+        print('10 -- quit')
+        method_num_to_run = input()
+
+        if method_num_to_run == '1':
+            NETWORK.Create_Block()
+        elif method_num_to_run == '2':
+            NETWORK.Create_Branch
+        elif method_num_to_run == '3':
+            NETWORK.Append_Block_to_Network_v2()
+        elif method_num_to_run == '4':
+            NETWORK.Append_Branch_to_Network_v2()
+        elif method_num_to_run == '5':
+            print(*NETWORK.Blocks)
+        elif method_num_to_run == '6':
+            print(*NETWORK.Branches_Created)
+        elif method_num_to_run == '7':
+            print(*NETWORK.ALL_BLOCKS)
+        elif method_num_to_run == '8':
+            print(*NETWORK.ALL_BRANCHES)
+        elif method_num_to_run == '9':
+            print(*NETWORK.order)
+        elif method_num_to_run == '10':
+            ask = False
+
+run()
