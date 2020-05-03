@@ -318,6 +318,8 @@ class MAIN_OBJ():
         #Also will be used for debugging in the future
         params = self.input_reworker(layer[0], layer[1])        
         if num_of_dim == 1:
+            if isinstance(dim, list) and len( dim ) == 1:
+                dim = dim[0]
 
             if layer[0] == 'conv1d':
                 dim = int(np.ceil((dim + 2*params[4] - params[5]*(params[2]-1)-1)/params[3] + 1))
@@ -327,15 +329,27 @@ class MAIN_OBJ():
                 dim =  1
         
         elif num_of_dim == 2:
-
+            if isinstance(dim, list) and len( dim ) == 1:
+                dim = dim[0]
             if layer[0] == 'conv2d':
-                dim[0] = int(np.ceil((dim[0] + 2*params[3][0] - params[5][0]*(params[2][0]-1)-1)/params[3][0] + 1))
-                dim[1] = int(np.ceil((dim[1] + 2*params[3][1] - params[5][1]*(params[2][1]-1)-1)/params[3][1] + 1))
+                print('params ------> {}'.format(params))
+
+
+
+                [19, 20, [2, 2], [1, 1], [0, 0], [1, 1], 1, True, 'zeros']
+
+
+                print('dim at the begin {}'.format(dim))
+                dim[0] = int(np.ceil((dim[0] + 2*params[4][0] - params[5][0]*(params[2][0]-1)-1)/params[3][0] + 1))
+                dim[1] = int(np.ceil((dim[1] + 2*params[4][1] - params[5][1]*(params[2][1]-1)-1)/params[3][1] + 1))
+                print('dim at the end {}'.format(dim))
+
             elif layer[0] == 'MaxPool2d':
                 dim[0] = int(np.ceil((dim[0] + 2*params[2][0] - params[3][0]*(params[0][0]-1)-1)/params[3][0] + 1))
                 dim[1] = int(np.ceil((dim[1] + 2*params[2][1] - params[3][1]*(params[0][1]-1)-1)/params[3][1] + 1))
             elif layer[0] == 'Flatten':
-                dim[0], dim[1] = 1 , 1
+                dim[0] = 1
+                dim[1] = 1 
         
         return dim
 
@@ -351,6 +365,10 @@ class MAIN_OBJ():
             if num_of_dim == 1:
                 out_channels = dim * out_channels
             elif num_of_dim == 2:
+                print('first dim {}'.format(dim[0]))
+                print('2nd dim {}'.format(dim[1]))
+                print('out_channels {}'.format( out_channels))
+
                 out_channels = dim[0] * dim[1] * out_channels
         return out_channels
 
@@ -1063,7 +1081,12 @@ def split_data_info( data_info ):
             elif len( dimdim ) == 1:
                 DIM_LIST.append( int( dimdim[ 0 ] ) )
     elif len( DIMS ) == 1:
-        DIM_LIST.append( int( DIMS ) )
+        dimdim = DIMS[ 0 ].split('x')
+        if len( dimdim ) > 1:
+            new_dim = [ int( dimdim[ 0 ] ), int( dimdim[ 1 ] ) ]
+            DIM_LIST.append( new_dim )
+        elif len( dimdim ) == 1:
+            DIM_LIST.append( int( dimdim[ 0 ] ) )
 
     feature_size = int(feature_size_info[1])
 
@@ -1107,7 +1130,7 @@ class Data():
         TRAIN, VAL, TEST = torch.Tensor( TRAIN ), torch.Tensor( VAL ), torch.Tensor( TEST )
         TRAIN_OUT, VAL_OUT, TEST_OUT = torch.Tensor( TRAIN_OUT  ), torch.Tensor(VAL_OUT ), torch.Tensor( TEST_OUT )
 
-        return [ TRAIN, VAL, TEST, TRAIN_OUT, VAL_OUT, TEST_OUT ]
+        return [ TRAIN, TRAIN_OUT, VAL, VAL_OUT,  TEST, TEST_OUT ]
     
 
 
@@ -1349,9 +1372,13 @@ class Data():
             VAL_OUT = np.array( self.sliding_window_df( VAL_OUT, max_window_len, window_len, out_size, OUTPUT = True) ) 
             TEST_OUT = np.array( self.sliding_window_df( TEST_OUT, max_window_len, window_len, out_size, OUTPUT = True ) )
             
-
             DATA_LIST = [TRAIN, TRAIN_OUT, VAL, VAL_OUT, TEST, TEST_OUT]
+
             FS = DATA_LIST[0].shape[1]
+
+            if dtype_new[0] == '2':
+
+                DATA_LIST = self.Recurrence_Plot_DATA_LIST( DATA_LIST )
 
             DATA_LIST = self.Convert_to_Tensor( DATA_LIST, save_name )
             DL_LIST = self.make_batch_single( DATA_LIST, batch_size )
@@ -1359,9 +1386,9 @@ class Data():
                                      save_name,
                                      feature_size = FS,
                                      window_len = window_len,
+                                     dim_list = dtype_new,
                                      dtype = dtype )
         
-
         elif dtype == 'Multiple':
             ALL_DATA_LIST = list()
             FS_LIST = list()
@@ -1386,15 +1413,9 @@ class Data():
                 new_VAL   =  np.array(self.sliding_window_df( new_VAL, max_window_len, window_len[ i ], out_size))
                 new_TEST  =  np.array(self.sliding_window_df( new_TEST, max_window_len, window_len[ i ], out_size))
 
-
-
-
                 new_TRAIN_OUT = np.array( self.sliding_window_df( new_TRAIN_OUT, max_window_len, window_len[ i ], out_size, OUTPUT = True ) )
                 new_VAL_OUT = np.array( self.sliding_window_df( new_VAL_OUT, max_window_len, window_len[ i ], out_size, OUTPUT = True) )
                 new_TEST_OUT  = np.array( self.sliding_window_df( new_TEST_OUT, max_window_len, window_len[ i ], out_size, OUTPUT = True ) )
-                
-
-
 
                 FS = np.array( TRAIN ).shape[ 1 ]
                 FS_LIST.append( FS )
@@ -1435,9 +1456,9 @@ class Data():
 
             LIST_OF_LISTS = [ TRAIN_LIST, TRAIN_OUT_LIST, VAL_LIST, VAL_OUT_LIST, TEST_LIST, TEST_OUT_LIST ]
             
-        DL_LIST = self.make_batch_multiple( LIST_OF_LISTS, batch_size )
-        
-        self.Save_Processed_Data( DL_LIST,
+            DL_LIST = self.make_batch_multiple( LIST_OF_LISTS, batch_size )
+            
+            self.Save_Processed_Data( DL_LIST,
                                 save_name,
                                 feature_size = FS,
                                 window_len = window_len,
@@ -1447,7 +1468,8 @@ class Data():
 
     def make_batch_single(self, DATA_LIST, batch_size):
         TRAIN, TRAIN_OUT, VAL, VAL_OUT, TEST, TEST_OUT = DATA_LIST 
-        
+        print('into make_batch_single {}'.format(TRAIN.shape))
+        print('into make_batch_single {}'.format(TRAIN_OUT.shape))
         #COMBINE INPS WITH OUTS
         #COMBINE INPS WITH OUTS
         TRAIN_DS = TensorDataset( TRAIN, TRAIN_OUT )
@@ -1490,6 +1512,11 @@ class Data():
 
 
     def Save_Processed_Data(self, NEW_DATA_LIST, save_name,  feature_size, window_len, dim_list, dtype = 'Single'):
+        print('DIM LIST DIM LIST {}'.format( dim_list ) )
+        print('DIM LIST DIM LIST {}'.format( dim_list ) )
+
+        print('DIM LIST DIM LIST {}'.format( dim_list ) )
+
         try:
             os.mkdir('DATA')
         except:
@@ -1511,7 +1538,11 @@ class Data():
         FS_string = str(feature_size)
 
         if dtype == 'Single':
-            window_len_string = str(window_len)
+            if dim_list[ 0 ] == '2':
+                window_len_string = str( window_len )  + 'x' + str( window_len ) 
+
+            elif dim_list[ 0 ] == '1':
+                window_len_string = str( window_len ) 
 
         elif dtype == 'Multiple':
             window_len_string = ''
@@ -1579,8 +1610,6 @@ class Data():
                 SAME = False
         test_all_same = SAME        
 
-
-
         if train_all_same == False or val_all_same == False or test_all_same == False:
             raise Exception('DATA shifted???????????????????????????')
 
@@ -1599,6 +1628,7 @@ class Data():
 
         TRAIN_DL, VAL_DL, TEST_DL = DataLoader( TRAIN_DS, batch_size ), DataLoader( VAL_DS, batch_size ), DataLoader( TEST_DS, batch_size )
         return [TRAIN_DL, VAL_DL, TEST_DL]
+
 
 
 class Model(nn.Module):
@@ -1632,7 +1662,6 @@ class Model(nn.Module):
             elif self.order[i] == 'block':
                 ind_block = ind_block + 1
                 self.layers.append( Block( self.ALL_BLOCKS[ str(ind_block ) ], self.BRANCH_START) )
-            self.BRANCH_START = False
 
     def forward( self, x ):
         for LAYER in self.layers:
@@ -1658,6 +1687,7 @@ class Model(nn.Module):
             count = 0 
             self.train()            
             for TENSORS in self.TRAIN_DL:
+                    
                 losses, nums = self.loss_batch( TENSORS, opt = self.optimizer)
                 batch_loss = batch_loss + losses
                 count = count + 1
@@ -1747,7 +1777,7 @@ class Block(nn.Module):
                 TYPE = BLOCK[ ENTITY_KEY ][0]
                 ARGS = BLOCK[ ENTITY_KEY ][1]
                 self.layers = self.layer_add(self.layers,TYPE,*ARGS)
-            self.BRANCH_START = False
+
 
     def forward( self, x ):
         for LAYER in self.layers:
@@ -1825,9 +1855,7 @@ class Branch(nn.Module):
                     branch_concat_out = torch.cat( [ branch_concat_out, self.BB[ TYPE ]( x[ i ] ) ], dim = 1)
                 elif self.BRANCH_START == False:
                     branch_concat_out = torch.cat( [ branch_concat_out, self.BB[ TYPE ]( x[ 0 ] ) ], dim = 1)
-        self.BRANCH_START = False
         return branch_concat_out
-
 
 
     def splitter(self, KEYS, sep = '-'):
@@ -1838,5 +1866,3 @@ class Branch(nn.Module):
         for key in range(num_of_keys):
             new_key_list.append(key_list[key].split(sep))
         return new_key_list
-
-
