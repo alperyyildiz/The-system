@@ -329,8 +329,6 @@ class MAIN_OBJ():
         elif num_of_dim == 2:
 
             if layer[0] == 'conv2d':
-                print('\n TRACK DIM DIM DIM DIM DIM ------> {}'.format( dim ) )
-                print('\n PARAMS ARE ----------> {}'.format(params))
                 dim[0] = int(np.ceil((dim[0] + 2*params[3][0] - params[5][0]*(params[2][0]-1)-1)/params[3][0] + 1))
                 dim[1] = int(np.ceil((dim[1] + 2*params[3][1] - params[5][1]*(params[2][1]-1)-1)/params[3][1] + 1))
             elif layer[0] == 'MaxPool2d':
@@ -455,7 +453,6 @@ class MAIN_OBJ():
     def track_dim_and_ch( self, Layer, out_channels, DIM, num_of_dim ):
         LAYER = copy.deepcopy( Layer )
         out_channels = self.track_out_channels( LAYER, out_channels, DIM, num_of_dim)
-        print('\n track_dim_and_ch DIMDIMDIMDIDMIMD \n -----> {}'.format(DIM))
         DIM = self.track_dim( LAYER, DIM, num_of_dim)
         return out_channels, DIM
 
@@ -528,7 +525,6 @@ class NET(MAIN_OBJ):
 
         try:
             os.mkdir('NET')
-            print(' NET CREATED ')
         except:
             pass
 
@@ -577,7 +573,6 @@ class NET(MAIN_OBJ):
         for i, entity in enumerate(block_keys):
             
             if entity_type[i] == 'layer':
-                print('\n DIMDIMDIM in track_dim_and_ch_block ----> {}'.format(dim))
                 out_channels, dim = self.track_dim_and_ch(BLOCK[ entity ], out_channels, dim, num_of_dim)
             elif entity_type[i] == 'block':
                 out_channels, dim = self.track_dim_and_ch_block(BLOCK[ entity ], out_channels, dim)
@@ -588,7 +583,6 @@ class NET(MAIN_OBJ):
                 else:
                     dim_list = [dim for x in range(len(list( BLOCK[ entity ].keys() ) ) ) ]
                 
-                print('track_dim_and_ch_block DIM_LIST --------> {}'.format( dim_list ) )
                 out_channels, dim = self.track_dim_and_ch_branch( BLOCK[ entity ], out_channels, dim_list )
         return out_channels, dim
 
@@ -924,7 +918,6 @@ class NET(MAIN_OBJ):
 
         
         #track out channels and seqeunce length  
-        print('\n SELF DIM append_block ----------> {} \n'.format(self.DIM))
         self.out_channels, self.DIM = self.track_dim_and_ch_block( BLOCK, self.out_channels, self.DIM)
 
         #Append block layers to network
@@ -1407,16 +1400,13 @@ class Data():
                 FS_LIST.append( FS )
 
                 dim = int(dim)
-                print('DIM DIM DIM {}'.format( dim ) )
                 if dim == 1:
-                    print('branch: {}'.format( count ) )
                     count = count + 1
                     new_DATA_LIST = [ new_TRAIN, new_TRAIN_OUT, new_VAL, new_VAL_OUT, new_TEST, new_TEST_OUT ]
 
                     ALL_DATA_LIST.append( new_DATA_LIST )
 
                 elif dim == 2:
-                    print('branch: {}'.format( count ) )
                     count = count + 1
                     new_DATA_LIST = [ new_TRAIN, new_TRAIN_OUT, new_VAL, new_VAL_OUT, new_TEST, new_TEST_OUT ]
 
@@ -1474,7 +1464,6 @@ class Data():
         FS = DATA.shape[ 1 ]
         SAMPLES = DATA.shape[ 0 ]
         ALL_PLOTS = list()
-        print('DATA SHAPE inside Recurrence_Plot_ONE_DATASET  {}'.format(np.array(DATA).shape))
 
         for SMP in range( SAMPLES ):
             SAMPLE_PLOTS = list()
@@ -1484,7 +1473,6 @@ class Data():
                 FEAT_VALUES = TEMP_SAMPLE[ FEAT ]
                 SAMPLE_PLOTS.append( rec_plot( FEAT_VALUES ) )
             ALL_PLOTS.append( SAMPLE_PLOTS )
-        print(rec_plot( FEAT_VALUES ).shape)
         return np.array( ALL_PLOTS )
 
 
@@ -1533,13 +1521,10 @@ class Data():
                     start = ''
                 else:
                     start = '-'
-                print(dim_list)
                 if dim_list[ i ] == '2':
-                    print('its 2d')
                     window_len_string = window_len_string + start + str( window )  + 'x' + str( window ) 
 
                 elif dim_list[ i ] == '1':
-                    print('its 1d ')
                     window_len_string = window_len_string + start + str( window ) 
 
         TRAIN_DL, VAL_DL, TEST_DL = NEW_DATA_LIST
@@ -1616,7 +1601,6 @@ class Data():
         return [TRAIN_DL, VAL_DL, TEST_DL]
 
 
-
 class Model(nn.Module):
     def __init__( self ):
         super().__init__()
@@ -1650,12 +1634,12 @@ class Model(nn.Module):
                 self.layers.append( Block( self.ALL_BLOCKS[ str(ind_block ) ], self.BRANCH_START) )
             self.BRANCH_START = False
 
-    def forward( self, *x ):
+    def forward( self, x ):
         for LAYER in self.layers:
-            x = LAYER( *x )
+            x = LAYER( x )
         return x
 
-    def loss_batch(self, *TENSORS, opt=None):
+    def loss_batch(self, TENSORS, opt=None):
         model_out = self( TENSORS[ : -1 ] )
         loss = self.Loss_FUNC(model_out, TENSORS[ -1 ])
         if opt is not None:
@@ -1825,23 +1809,19 @@ class Branch(nn.Module):
             elif TYPE == 'branch':
                 self.BB[ the_key ] = Branch(BRANCH[ the_key ], False)
                 self.forward_keys.append( the_key )
-            print('FORWARD KEYS ARE: {}'.format(self.forward_keys))
 
 
-    def forward( self, *x ):
+    def forward( self, x ):
         for i,  TYPE in enumerate(self.forward_keys):
             
             if i == 0:
                 if self.BRANCH_START == True:
-                    print(x.shape)
-                    print(x.shape)
-                    print(x.shape)
+
                     branch_concat_out = torch.Tensor( self.BB[ TYPE ]( x[ i ] ) )
                 elif self.BRANCH_START == False:
                     branch_concat_out = torch.Tensor( self.BB[ TYPE ]( x[ 0 ] ) )
             else:
                 if self.BRANCH_START == True:
-                    print(x[i])
                     branch_concat_out = torch.cat( [ branch_concat_out, self.BB[ TYPE ]( x[ i ] ) ], dim = 1)
                 elif self.BRANCH_START == False:
                     branch_concat_out = torch.cat( [ branch_concat_out, self.BB[ TYPE ]( x[ 0 ] ) ], dim = 1)
@@ -1858,7 +1838,5 @@ class Branch(nn.Module):
         for key in range(num_of_keys):
             new_key_list.append(key_list[key].split(sep))
         return new_key_list
-
-    
 
 
