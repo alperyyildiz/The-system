@@ -1512,11 +1512,6 @@ class Data():
 
 
     def Save_Processed_Data(self, NEW_DATA_LIST, save_name,  feature_size, window_len, dim_list, dtype = 'Single'):
-        print('DIM LIST DIM LIST {}'.format( dim_list ) )
-        print('DIM LIST DIM LIST {}'.format( dim_list ) )
-
-        print('DIM LIST DIM LIST {}'.format( dim_list ) )
-
         try:
             os.mkdir('DATA')
         except:
@@ -1628,6 +1623,48 @@ class Data():
 
         TRAIN_DL, VAL_DL, TEST_DL = DataLoader( TRAIN_DS, batch_size ), DataLoader( VAL_DS, batch_size ), DataLoader( TEST_DS, batch_size )
         return [TRAIN_DL, VAL_DL, TEST_DL]
+
+
+
+
+def run():
+    data = Data()
+    ask = True
+    while ask:
+        print('\n 1 -- Preprocess \n 2 -- quit')
+        method_num_to_run = input()
+
+        if method_num_to_run == '1':
+            data.Preprocess()
+        elif method_num_to_run == '2':
+            ask = False
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
@@ -1866,3 +1903,9 @@ class Branch(nn.Module):
         for key in range(num_of_keys):
             new_key_list.append(key_list[key].split(sep))
         return new_key_list
+
+LR  = input('provide learning rate please')
+
+MOD = Model()
+MOD.optimizer = optim.Adam(MOD.parameters(), lr=0.LR)
+MOD.fit()
